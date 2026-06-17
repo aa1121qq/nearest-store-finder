@@ -194,6 +194,59 @@
     .status.error   { background: #fde8e8; color: #9b1c1c; border: 1px solid #f5b5b5; }
     .status.success { background: #e6f7f1; color: #0e7c5b; border: 1px solid #b8e6d5; }
 
+    /* بطاقة بيانات الموقع */
+    .my-location-card {
+      background: #f0f7ff;
+      border: 1px solid #c2dfff;
+      border-radius: 8px;
+      padding: 16px;
+      margin-top: 16px;
+      display: none;
+    }
+    .my-location-card.show { display: block; }
+    .my-location-card h3 {
+      font-size: 14px;
+      color: #0a558c;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .my-location-card .coords-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      font-size: 13px;
+    }
+    .my-location-card .coord-item {
+      background: #fff;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border: 1px solid #e0ecf9;
+    }
+    .my-location-card .coord-item .label {
+      color: var(--muted);
+      font-size: 11px;
+      margin-bottom: 2px;
+    }
+    .my-location-card .coord-item .value {
+      font-weight: 700;
+      color: var(--text);
+      font-family: "Consolas", monospace;
+      font-size: 13px;
+      direction: ltr;
+      text-align: right;
+    }
+    .my-location-card .map-link {
+      display: inline-block;
+      margin-top: 10px;
+      font-size: 13px;
+      color: #0a558c;
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .my-location-card .map-link:hover { text-decoration: underline; }
+
     /* بطاقة المخزن الأقرب */
     .nearest-card {
       background: linear-gradient(135deg, #fff5f5, #ffe5e5);
@@ -490,6 +543,28 @@
 
       <div class="status" id="status"></div>
 
+      <!-- بطاقة بيانات موقع العميل -->
+      <div class="my-location-card" id="myLocationCard">
+        <h3>📍 موقعك الحالي</h3>
+        <div class="coords-grid">
+          <div class="coord-item">
+            <div class="label">خط العرض (Latitude)</div>
+            <div class="value" id="myLat">—</div>
+          </div>
+          <div class="coord-item">
+            <div class="label">خط الطول (Longitude)</div>
+            <div class="value" id="myLng">—</div>
+          </div>
+          <div class="coord-item">
+            <div class="label">دقة التحديد</div>
+            <div class="value" id="myAccuracy">—</div>
+          </div>
+        </div>
+        <a class="map-link" id="mapLink" href="#" target="_blank" rel="noopener">
+          🗺️ افتح موقعي على الخريطة
+        </a>
+      </div>
+
       <!-- بطاقة الأقرب -->
       <div class="nearest-card" id="nearestCard">
         <div class="label">أقرب مخزن إليك:</div>
@@ -592,9 +667,19 @@
     }
 
     // حساب وعرض الأقرب من موقع المستخدم
-    function computeAndRender(userLat, userLng) {
+    function computeAndRender(userLat, userLng, accuracy) {
       // احفظ موقع العميل ليُستخدم في تحديد توفّر المنتجات
       userLocation = { lat: userLat, lng: userLng };
+
+      // اعرض بيانات الموقع (إحداثيات + دقة)
+      const myLocCard = document.getElementById('myLocationCard');
+      document.getElementById('myLat').textContent = userLat.toFixed(6);
+      document.getElementById('myLng').textContent = userLng.toFixed(6);
+      document.getElementById('myAccuracy').textContent =
+        accuracy != null ? `± ${Math.round(accuracy)} م` : '—';
+      document.getElementById('mapLink').href =
+        `https://www.openstreetmap.org/?mlat=${userLat}&mlon=${userLng}#map=15/${userLat}/${userLng}`;
+      myLocCard.classList.add('show');
 
       // احسب المسافة لكل مخزن
       const ranked = stores.map(s => ({
@@ -670,6 +755,7 @@
       nearestCard.classList.remove('show');
       storesList.classList.remove('show');
       manualSection.classList.remove('show');
+      document.getElementById('myLocationCard').classList.remove('show');
 
       // المتصفّح لا يدعم Geolocation
       if (!('geolocation' in navigator)) {
@@ -684,8 +770,8 @@
         // النجاح
         (pos) => {
           locateBtn.disabled = false;
-          const { latitude, longitude } = pos.coords;
-          computeAndRender(latitude, longitude);
+          const { latitude, longitude, accuracy } = pos.coords;
+          computeAndRender(latitude, longitude, accuracy);
         },
         // الفشل
         (err) => {
