@@ -202,20 +202,33 @@
       margin-left: 4px;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .addr-fields {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 8px;
-      margin-top: 12px;
-      font-size: 13px;
+    /* حقل تم تعبئته تلقائياً من سبل — وميض بسيط للفت الانتباه */
+    @keyframes flashFill {
+      0%   { background: #fff9c4; }
+      100% { background: #fff; }
     }
-    .addr-fields .f {
-      background: #fff;
-      border: 1px solid #cfe7ff;
-      padding: 8px 10px; border-radius: 6px;
+    .auto-filled {
+      animation: flashFill 1.2s ease-out;
     }
-    .addr-fields .f .k { color: #5b7d99; font-size: 11px; margin-bottom: 2px; }
-    .addr-fields .f .v { font-weight: 700; color: #0a558c; font-size: 13px; }
+    .field-source-tag {
+      display: inline-block;
+      background: #e6f7f1;
+      color: #0e7c5b;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 8px;
+      margin-right: 6px;
+    }
+    .field-source-tag.empty {
+      background: #f0f0f0;
+      color: #888;
+    }
+    .coords-input {
+      direction: ltr;
+      text-align: left;
+      font-family: "Consolas", monospace;
+    }
     .sebl-hint {
       font-size: 12px; color: var(--muted);
       margin-top: 4px;
@@ -395,26 +408,63 @@
         </div>
       </div>
 
-      <!-- 2) رمز العنوان الوطني (محاكاة سبل) -->
+      <!-- 2) العنوان (سبل + حقول قابلة للتعديل) -->
       <div class="card">
-        <h2><span class="num">2</span> رمز العنوان الوطني</h2>
+        <h2><span class="num">2</span> عنوان التوصيل</h2>
 
+        <!-- صف سبل -->
         <div class="sebl-row">
           <input type="text" id="seblInput"
-                 placeholder="مثال: RRRD2929"
+                 placeholder="مثال: RRRD3005"
                  maxlength="8" />
           <button id="seblBtn" type="button">الحصول على العنوان</button>
         </div>
         <p class="sebl-hint">
-          أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وسنجلب عنوانك تلقائياً.
+          أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وستُعبّأ الحقول أدناه تلقائياً.
         </p>
 
         <div class="sebl-result" id="seblResult"></div>
 
-        <p class="sim-note" id="seblModeNote">
-          ✓ <strong>متصل بـ API سبل عبر باك إند آمن</strong> — العنوان يُجلب من الخادم
-          الرسمي ولا يُكشف الـ Subscription Key للمتصفّح.
+        <p class="sim-note" id="seblModeNote" style="margin-bottom:16px;">
+          ✓ <strong>متصل بـ API سبل عبر باك إند آمن</strong> — الحقول التالية ستُعبّأ من
+          العنوان الوطني الفعلي، ويمكنك تعديل أي حقل قبل التأكيد.
         </p>
+
+        <!-- حقول العنوان (تُعبّأ تلقائياً من سبل) -->
+        <div class="form-grid">
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="city">يدوي</span> المدينة</label>
+            <input type="text" id="addrCity" placeholder="مثال: الرياض" />
+          </div>
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="district">يدوي</span> الحي</label>
+            <input type="text" id="addrDistrict" placeholder="مثال: العارض" />
+          </div>
+          <div class="form-group full">
+            <label><span class="field-source-tag empty" data-tag="street">يدوي</span> الشارع</label>
+            <input type="text" id="addrStreet" placeholder="مثال: سليمان بن مراد" />
+          </div>
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="building">يدوي</span> رقم المبنى</label>
+            <input type="text" id="addrBuilding" placeholder="مثال: 3005" />
+          </div>
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="postCode">يدوي</span> الرمز البريدي</label>
+            <input type="text" id="addrPostCode" placeholder="مثال: 13342" />
+          </div>
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="lat">يدوي</span> خط العرض (Latitude)</label>
+            <input type="text" id="addrLat" class="coords-input" placeholder="24.6740695" />
+          </div>
+          <div class="form-group">
+            <label><span class="field-source-tag empty" data-tag="lng">يدوي</span> خط الطول (Longitude)</label>
+            <input type="text" id="addrLng" class="coords-input" placeholder="46.6604273" />
+          </div>
+          <div class="form-group full">
+            <label>العنوان الكامل (Address Line)</label>
+            <textarea id="addrFull" placeholder="سيُعبّأ تلقائياً من سبل، أو اكتبه يدوياً."></textarea>
+          </div>
+        </div>
       </div>
 
       <!-- 3) معلومات العميل (اختيارية للنموذج) -->
@@ -569,21 +619,59 @@
 
     let resolvedAddress = null; // العنوان الذي تم استخراجه من سبل
 
-    function renderAddressFields(r) {
-      // حقول مفصّلة لعرض الرد كاملاً
-      return `
-        <div class="addr-fields">
-          <div class="f"><div class="k">المنطقة</div><div class="v">${r.region || '—'}</div></div>
-          <div class="f"><div class="k">المدينة</div><div class="v">${r.city || '—'}</div></div>
-          <div class="f"><div class="k">الحي</div><div class="v">${r.district || '—'}</div></div>
-          <div class="f"><div class="k">الشارع</div><div class="v">${r.street || '—'}</div></div>
-          <div class="f"><div class="k">رقم المبنى</div><div class="v">${r.building || '—'}</div></div>
-          <div class="f"><div class="k">الرمز البريدي</div><div class="v">${r.postCode || '—'}</div></div>
-          <div class="f"><div class="k">الرقم الإضافي</div><div class="v">${r.additionalNumber || '—'}</div></div>
-          <div class="f"><div class="k">الإحداثيات</div><div class="v" style="direction:ltr;text-align:right;">${r.lat?.toFixed(5) || '—'}, ${r.lng?.toFixed(5) || '—'}</div></div>
-        </div>
-      `;
+    // خريطة: مفتاح الحقل في الرد ← element id + tag
+    const ADDRESS_FIELDS = [
+      { tag: 'city',     id: 'addrCity',     getValue: r => r.city },
+      { tag: 'district', id: 'addrDistrict', getValue: r => r.district },
+      { tag: 'street',   id: 'addrStreet',   getValue: r => r.street },
+      { tag: 'building', id: 'addrBuilding', getValue: r => r.building },
+      { tag: 'postCode', id: 'addrPostCode', getValue: r => r.postCode },
+      { tag: 'lat',      id: 'addrLat',      getValue: r => r.lat != null ? String(r.lat) : '' },
+      { tag: 'lng',      id: 'addrLng',      getValue: r => r.lng != null ? String(r.lng) : '' }
+    ];
+
+    // عبّئ الحقول من رد سبل وأبرزها بصرياً
+    function populateAddressFields(r) {
+      ADDRESS_FIELDS.forEach(f => {
+        const el = document.getElementById(f.id);
+        if (!el) return;
+        const v = f.getValue(r) || '';
+        el.value = v;
+        // وميض مؤقت + تحديث وسم المصدر
+        el.classList.remove('auto-filled');
+        // إعادة التشغيل بإجبار reflow
+        void el.offsetWidth;
+        el.classList.add('auto-filled');
+        const tagEl = document.querySelector(`.field-source-tag[data-tag="${f.tag}"]`);
+        if (tagEl) {
+          tagEl.textContent = 'من سبل';
+          tagEl.classList.remove('empty');
+        }
+      });
+      // العنوان الكامل
+      const fullEl = document.getElementById('addrFull');
+      if (fullEl) {
+        fullEl.value = r.address || '';
+        void fullEl.offsetWidth;
+        fullEl.classList.remove('auto-filled');
+        void fullEl.offsetWidth;
+        fullEl.classList.add('auto-filled');
+      }
     }
+
+    // وسم أي حقل المستخدم عدّله بعد التعبئة كـ "تم التعديل يدوياً"
+    ADDRESS_FIELDS.forEach(f => {
+      const el = document.getElementById(f.id);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        const tagEl = document.querySelector(`.field-source-tag[data-tag="${f.tag}"]`);
+        if (tagEl && !tagEl.classList.contains('empty')) {
+          tagEl.textContent = 'تم تعديله';
+          tagEl.style.background = '#fff3cd';
+          tagEl.style.color = '#856404';
+        }
+      });
+    });
 
     async function lookupSebl() {
       // أظهر حالة التحميل
@@ -612,11 +700,11 @@
           seblResult.classList.remove('err');
           seblResult.classList.add('ok');
           seblResult.innerHTML = `
-            ✓ تم جلب العنوان من سبل بنجاح:
+            ✓ تم جلب العنوان من سبل بنجاح. تمت تعبئة الحقول أدناه — يمكنك تعديل أي قيمة قبل التأكيد.
             <div class="addr-line">${result.address}</div>
-            ${renderAddressFields(result)}
           `;
           resolvedAddress = result;
+          populateAddressFields(result); // ← التعبئة التلقائية
         }
       } finally {
         seblBtn.disabled = false;
@@ -635,29 +723,63 @@
     // ====== 3) الملخّص النهائي + زر التأكيد ======
     const finalSummary = document.getElementById('finalSummary');
 
+    // اقرأ القيم الحالية من حقول العنوان (قد يكون المستخدم عدّلها بعد سبل)
+    function getCurrentAddress() {
+      const city     = document.getElementById('addrCity').value.trim();
+      const district = document.getElementById('addrDistrict').value.trim();
+      const street   = document.getElementById('addrStreet').value.trim();
+      const building = document.getElementById('addrBuilding').value.trim();
+      const postCode = document.getElementById('addrPostCode').value.trim();
+      const lat      = document.getElementById('addrLat').value.trim();
+      const lng      = document.getElementById('addrLng').value.trim();
+      const fullManual = document.getElementById('addrFull').value.trim();
+      // إن لم يكتب المستخدم العنوان كاملاً، نُركّبه من الحقول
+      const full = fullManual || [
+        city,
+        district && `حي ${district}`,
+        street   && `شارع ${street}`,
+        building && `مبنى ${building}`
+      ].filter(Boolean).join('، ');
+      return { city, district, street, building, postCode, lat, lng, full };
+    }
+
     function updateFinalSummary() {
-      const sel = loadSelection();
+      const sel  = loadSelection();
+      const addr = getCurrentAddress();
       const hasStore = sel && sel.storeId;
-      const hasAddr  = resolvedAddress && resolvedAddress.ok;
+      // نعتبر العنوان جاهزاً عند توفّر المدينة والحي والشارع كحد أدنى
+      const hasAddr  = addr.city && addr.district && addr.street;
 
       if (hasStore && hasAddr) {
         document.getElementById('finalStore').textContent =
           `${sel.storeName} (رقم ${sel.storeId})`;
-        document.getElementById('finalCode').textContent = resolvedAddress.code;
-        document.getElementById('finalAddr').textContent = resolvedAddress.address;
+        document.getElementById('finalCode').textContent =
+          (resolvedAddress && resolvedAddress.code) || '— (إدخال يدوي)';
+        document.getElementById('finalAddr').textContent = addr.full;
         finalSummary.classList.add('show');
       } else {
         finalSummary.classList.remove('show');
       }
     }
 
+    // حدّث الملخّص فوراً عند تعديل أي حقل عنوان
+    ['addrCity','addrDistrict','addrStreet','addrBuilding','addrFull','addrLat','addrLng','addrPostCode']
+      .forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', updateFinalSummary);
+      });
+
     document.getElementById('placeOrderBtn').addEventListener('click', () => {
-      const sel = loadSelection();
+      const sel  = loadSelection();
+      const addr = getCurrentAddress();
+      const code = (resolvedAddress && resolvedAddress.code) || '(لم يُستخدم رمز وطني)';
       alert(
         '✓ تم تأكيد الطلب (محاكاة)\n\n' +
         `الفرع: ${sel.storeName} (${sel.storeId})\n` +
-        `العنوان: ${resolvedAddress.address}\n` +
-        `الرمز: ${resolvedAddress.code}\n\n` +
+        `الرمز الوطني: ${code}\n` +
+        `العنوان: ${addr.full}\n` +
+        `المدينة/الحي/الشارع: ${addr.city} / ${addr.district} / ${addr.street}\n` +
+        `الإحداثيات: ${addr.lat || '—'} , ${addr.lng || '—'}\n\n` +
         '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
       );
     });
