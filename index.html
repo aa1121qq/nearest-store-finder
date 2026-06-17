@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>أقرب مخزن إليك</title>
+  <!-- Leaflet للخرائط (مجاني، بدون مفتاح API) — OpenStreetMap -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
   <style>
     /* ============================================================
        Nearest Store Finder — Prototype (Qasr Alawani-style)
@@ -260,6 +264,73 @@
       font-weight: 600;
     }
     .my-location-card .map-link:hover { text-decoration: underline; }
+
+    /* صندوق الخريطة */
+    .map-card {
+      margin-top: 16px;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      display: none;
+    }
+    .map-card.show { display: block; }
+    .map-card .map-header {
+      background: #fafafa;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .map-card .map-header strong { color: var(--text); }
+    .map-card .map-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: #fff3cd;
+      color: #856404;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    #map {
+      height: 400px;
+      width: 100%;
+    }
+    @media (max-width: 600px) {
+      #map { height: 320px; }
+    }
+    /* تخصيص علامات Leaflet */
+    .store-icon {
+      background: var(--red);
+      color: #fff;
+      width: 28px; height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border: 2px solid #fff;
+    }
+    .store-icon span {
+      transform: rotate(45deg);
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .store-icon.nearest { background: var(--green); }
+    .user-icon {
+      background: #2563eb;
+      width: 24px; height: 24px;
+      border-radius: 50%;
+      border: 3px solid #fff;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+    }
 
     /* بطاقة المخزن الأقرب */
     .nearest-card {
@@ -590,6 +661,17 @@
         </div>
       </div>
 
+      <!-- الخريطة التفاعلية -->
+      <div class="map-card" id="mapCard">
+        <div class="map-header">
+          <div>
+            <strong>🗺️ خريطة المخازن وموقعك</strong>
+          </div>
+          <span class="map-hint">✋ اسحب علامتك الزرقاء لتجربة مواقع أخرى</span>
+        </div>
+        <div id="map"></div>
+      </div>
+
       <!-- قائمة كل المخازن مرتّبة -->
       <div class="stores-list" id="storesList">
         <h3>كل المخازن مرتّبة من الأقرب للأبعد:</h3>
@@ -610,13 +692,10 @@
       <div class="manual-section" id="manualSection">
         <label for="regionSelect">أو اختر منطقتك يدوياً:</label>
         <select id="regionSelect">
-          <option value="">-- اختر منطقة --</option>
-          <option value="6015">شمال الرياض</option>
-          <option value="6022">شرق الرياض</option>
-          <option value="6033">غرب الرياض</option>
-          <option value="6044">جنوب الرياض</option>
-          <option value="6055">وسط الرياض</option>
-          <option value="6066">حي الياسمين</option>
+          <option value="">-- اختر مخزناً --</option>
+          <option value="6015">مخزن الرياض - 6015</option>
+          <option value="6016">مخزن الرياض - 6016</option>
+          <option value="6014">مخزن الرياض - 6014</option>
         </select>
       </div>
 
@@ -634,6 +713,10 @@
     نموذج أولي — Nearest Store Finder Prototype · للتجربة فقط
   </footer>
 
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
   <!-- منطق مشترك (stores, Haversine, sessionStorage, محاكاة سبل) -->
   <script src="app.js"></script>
   <script>
@@ -681,7 +764,7 @@
       document.getElementById('myLat').textContent = userLat.toFixed(6);
       document.getElementById('myLng').textContent = userLng.toFixed(6);
       document.getElementById('myAccuracy').textContent =
-        accuracy != null ? `± ${Math.round(accuracy)} م` : '—';
+        accuracy != null ? `± ${Math.round(accuracy)} م` : 'موقع مخصّص (سحب)';
       document.getElementById('mapLink').href =
         `https://www.openstreetmap.org/?mlat=${userLat}&mlon=${userLng}#map=15/${userLat}/${userLng}`;
       myLocCard.classList.add('show');
@@ -694,6 +777,7 @@
 
       const nearest = ranked[0];
       nearestStoreDistance = nearest.distance;
+      nearestStoreId = nearest.id; // للفلترة في renderProducts
 
       // اعرض بطاقة الأقرب
       nearestName.textContent = nearest.name;
@@ -728,6 +812,7 @@
       showStatus(statusMsg, 'success');
 
       renderProducts();
+      initOrUpdateMap(userLat, userLng); // الخريطة
 
       /* ====== المنطق الجوهري: نحسب المخزن مرة واحدة ونحفظه ======
          المخزن مشتق من الإحداثيات (lat/lng) عبر Haversine.
@@ -761,6 +846,7 @@
       const store = getStoreById(selectedId);
       if (!store) return;
 
+      nearestStoreId = store.id; // للفلترة
       nearestName.textContent = store.name;
       nearestId.textContent   = store.id;
       nearestDist.textContent = '—';
@@ -769,6 +855,7 @@
       shipToLabel.textContent = store.name;
 
       showStatus('تم اختيار المنطقة يدوياً: ' + store.name, 'info');
+      renderProducts();
 
       // احفظ الاختيار اليدوي للـ checkout
       saveSelection({
@@ -835,6 +922,80 @@
           maximumAge: 0
         }
       );
+    }
+
+    /* ============================================================
+       منطق الخريطة (Leaflet + OpenStreetMap — مجاني تماماً)
+       ------------------------------------------------------------
+       - تُظهر الخريطة كل المخازن كعلامات حمراء (والأقرب أخضر).
+       - علامة العميل زرقاء وقابلة للسحب.
+       - عند سحب العميل لمكان آخر: نُعيد حساب الأقرب،
+         نُحدّث القائمة، ونُعيد فلترة المنتجات.
+       ============================================================ */
+    let mapInstance = null;
+    let userMarker = null;
+    let storeMarkers = [];
+
+    function storeIcon(isNearest, label) {
+      return L.divIcon({
+        className: 'store-marker',
+        html: `<div class="store-icon ${isNearest ? 'nearest' : ''}"><span>🏬</span></div>`,
+        iconSize: [28, 28],
+        iconAnchor: [14, 28]
+      });
+    }
+    function userIcon() {
+      return L.divIcon({
+        className: 'user-marker',
+        html: `<div class="user-icon"></div>`,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12]
+      });
+    }
+
+    function initOrUpdateMap(userLat, userLng) {
+      document.getElementById('mapCard').classList.add('show');
+
+      // إنشاء الخريطة أول مرة
+      if (!mapInstance) {
+        mapInstance = L.map('map').setView([userLat, userLng], 11);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom: 19,
+          attribution: '© OpenStreetMap'
+        }).addTo(mapInstance);
+
+        // علامات المخازن (تُضاف مرة واحدة)
+        stores.forEach(s => {
+          const m = L.marker([s.lat, s.lng], { icon: storeIcon(false) })
+            .addTo(mapInstance)
+            .bindPopup(`<strong>${s.name}</strong><br>رقم: ${s.id}`);
+          storeMarkers.push({ id: s.id, marker: m });
+        });
+      }
+      // ملاحظة: لا نُعيد setView عند التحديثات اللاحقة
+      // (مثلاً عند السحب) حتى لا تقفز الخريطة بشكل مزعج.
+
+      // علامة العميل (قابلة للسحب)
+      if (userMarker) {
+        userMarker.setLatLng([userLat, userLng]);
+      } else {
+        userMarker = L.marker([userLat, userLng], {
+          icon: userIcon(),
+          draggable: true,
+          title: 'موقعك (يمكنك سحبه)'
+        }).addTo(mapInstance).bindPopup('موقعك — اسحبني للتجربة');
+
+        // عند السحب: أعد حساب الأقرب
+        userMarker.on('dragend', (e) => {
+          const ll = e.target.getLatLng();
+          computeAndRender(ll.lat, ll.lng, null);
+        });
+      }
+
+      // أبرز المخزن الأقرب باللون الأخضر
+      storeMarkers.forEach(({ id, marker }) => {
+        marker.setIcon(storeIcon(id === nearestStoreId));
+      });
     }
 
     // إظهار زر "متابعة للدفع" بعد اختيار مخزن
@@ -978,6 +1139,7 @@
     // حالة الموقع — يتم تحديثها بعد تحديد الموقع
     let userLocation = null;       // { lat, lng } أو null
     let nearestStoreDistance = null; // مسافة أقرب مخزن بالكيلومتر
+    let nearestStoreId = null;       // id أقرب مخزن (لفلترة المنتجات)
 
     // هل المنتج متوفر للعميل بناءً على موقعه؟
     function isProductInStock(product) {
@@ -994,7 +1156,35 @@
       const grid = document.getElementById('productsGrid');
       grid.innerHTML = '';
 
-      products.forEach(p => {
+      // اختر المنتجات حسب أقرب مخزن (لو محدّد). قبل تحديد الموقع: اعرض الكل.
+      const visibleProducts = nearestStoreId
+        ? getProductsForStore(nearestStoreId, products)
+        : products;
+
+      // عنوان القسم يوضّح الفلتر
+      const sectionTitle = document.querySelector('.products-section h2');
+      if (sectionTitle) {
+        if (nearestStoreId) {
+          const store = getStoreById(nearestStoreId);
+          sectionTitle.innerHTML = `منتجات متوفرة في ${store ? store.name : ''}
+            <small style="display:block; font-size:13px; color:var(--muted); font-weight:400; margin-top:6px;">
+              ${visibleProducts.length} منتج
+            </small>`;
+        } else {
+          sectionTitle.textContent = 'منتجاتنا';
+        }
+      }
+
+      if (visibleProducts.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column:1/-1; text-align:center; padding:40px; color:var(--muted);">
+            <div style="font-size:48px; margin-bottom:10px;">📦</div>
+            <div>لا توجد منتجات متوفرة في هذا المخزن حالياً.</div>
+          </div>`;
+        return;
+      }
+
+      visibleProducts.forEach(p => {
         const inStock = isProductInStock(p);
         const finalPrice = p.salePrice !== null ? p.salePrice : p.price;
         const hasDiscount = p.salePrice !== null && p.salePrice < p.price;
