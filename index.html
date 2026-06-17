@@ -181,6 +181,20 @@
     }
     .btn-locate .icon { font-size: 20px; }
 
+    /* زر المتابعة للدفع */
+    .btn-checkout {
+      display: inline-block;
+      background: #111;
+      color: #fff;
+      padding: 14px 28px;
+      font-size: 16px;
+      font-weight: 700;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-checkout:hover { background: #000; }
+
     /* رسائل الحالة */
     .status {
       margin-top: 16px;
@@ -582,6 +596,16 @@
         <div id="storesRows"></div>
       </div>
 
+      <!-- زر المتابعة للدفع — يظهر بعد اختيار مخزن -->
+      <div id="checkoutWrap" style="margin-top:20px; display:none;">
+        <a id="checkoutLink" href="checkout.html" class="btn-checkout">
+          متابعة للدفع ←
+        </a>
+        <small style="display:block; margin-top:8px; color:var(--muted); font-size:12px;">
+          سنرسل المخزن المختار تلقائياً إلى صفحة الدفع.
+        </small>
+      </div>
+
       <!-- الاختيار اليدوي (Fallback) -->
       <div class="manual-section" id="manualSection">
         <label for="regionSelect">أو اختر منطقتك يدوياً:</label>
@@ -610,37 +634,18 @@
     نموذج أولي — Nearest Store Finder Prototype · للتجربة فقط
   </footer>
 
+  <!-- منطق مشترك (stores, Haversine, sessionStorage, محاكاة سبل) -->
+  <script src="app.js"></script>
   <script>
     /* ============================================================
-       منطق التطبيق
+       منطق صفحة الرئيسية
        ------------------------------------------------------------
-       1. قائمة المخازن (بيانات تجريبية لمواقع في الرياض).
-       2. دالة Haversine لحساب المسافة بين نقطتين.
-       3. تحديد الموقع عبر Geolocation API.
-       4. خطة بديلة: اختيار يدوي عند رفض الإذن أو الفشل.
+       المنطق المشترك (stores, haversineKm, save/load) موجود في app.js
+       هنا نضيف فقط:
+         - تحديد الموقع عبر Geolocation API.
+         - عرض النتائج وحفظ الاختيار للـ checkout.
+         - خطة بديلة: اختيار يدوي.
        ============================================================ */
-
-    // قائمة المخازن — بيانات افتراضية للتجربة فقط
-    const stores = [
-      { id: 6015, name: "مخزن شمال الرياض",  lat: 24.8270, lng: 46.6390 },
-      { id: 6022, name: "مخزن شرق الرياض",   lat: 24.7480, lng: 46.8200 },
-      { id: 6033, name: "مخزن غرب الرياض",   lat: 24.6550, lng: 46.6080 },
-      { id: 6044, name: "مخزن جنوب الرياض",  lat: 24.5800, lng: 46.7200 },
-      { id: 6055, name: "مخزن وسط الرياض",   lat: 24.6877, lng: 46.7219 },
-      { id: 6066, name: "مخزن حي الياسمين",  lat: 24.8420, lng: 46.6450 }
-    ];
-
-    // معادلة Haversine — حساب المسافة بالكيلومتر بين نقطتين
-    function haversineKm(lat1, lon1, lat2, lon2) {
-      const R = 6371; // نصف قطر الأرض بالكيلومتر
-      const dLat = (lat2 - lat1) * Math.PI / 180;
-      const dLon = (lon2 - lon1) * Math.PI / 180;
-      const a = Math.sin(dLat / 2) ** 2 +
-                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-                Math.sin(dLon / 2) ** 2;
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      return R * c;
-    }
 
     // عناصر DOM
     const locateBtn     = document.getElementById('locateBtn');
@@ -723,6 +728,23 @@
       showStatus(statusMsg, 'success');
 
       renderProducts();
+
+      /* ====== المنطق الجوهري: نحسب المخزن مرة واحدة ونحفظه ======
+         المخزن مشتق من الإحداثيات (lat/lng) عبر Haversine.
+         العنوان النصي (سبل لاحقاً) منفصل تماماً — لا يؤثّر على
+         اختيار المخزن. لهذا التطابق بين الصفحتين مضمون. */
+      saveSelection({
+        lat: userLat,
+        lng: userLng,
+        accuracy: accuracy != null ? Math.round(accuracy) : null,
+        storeId: nearest.id,
+        storeName: nearest.name,
+        distance: +nearest.distance.toFixed(2),
+        source: 'auto'
+      });
+
+      // فعّل زر "متابعة للدفع"
+      enableCheckoutButton();
     }
 
     // عرض الاختيار اليدوي عند الفشل
@@ -736,7 +758,7 @@
       const selectedId = parseInt(e.target.value, 10);
       if (!selectedId) return;
 
-      const store = stores.find(s => s.id === selectedId);
+      const store = getStoreById(selectedId);
       if (!store) return;
 
       nearestName.textContent = store.name;
@@ -747,6 +769,19 @@
       shipToLabel.textContent = store.name;
 
       showStatus('تم اختيار المنطقة يدوياً: ' + store.name, 'info');
+
+      // احفظ الاختيار اليدوي للـ checkout
+      saveSelection({
+        lat: null,
+        lng: null,
+        accuracy: null,
+        storeId: store.id,
+        storeName: store.name,
+        distance: null,
+        source: 'manual'
+      });
+
+      enableCheckoutButton();
     });
 
     // طلب الموقع
@@ -801,6 +836,17 @@
         }
       );
     }
+
+    // إظهار زر "متابعة للدفع" بعد اختيار مخزن
+    function enableCheckoutButton() {
+      document.getElementById('checkoutWrap').style.display = 'block';
+    }
+
+    // إذا كان هناك اختيار محفوظ من زيارة سابقة، أظهر الزر مباشرة
+    (function restoreOnLoad() {
+      const saved = loadSelection();
+      if (saved && saved.storeId) enableCheckoutButton();
+    })();
 
     // ربط الأزرار
     locateBtn.addEventListener('click', requestLocation);
@@ -928,10 +974,7 @@
       }
     ];
 
-    // نطاق التوفّر: إن كان أقرب مخزن ضمن 15 كم من العميل
-    // فإن كل المنتجات تُعرض كـ "متوفرة (In Stock)"
-    const STOCK_RADIUS_KM = 15;
-
+    // STOCK_RADIUS_KM معرّف في app.js (= 15 كم)
     // حالة الموقع — يتم تحديثها بعد تحديد الموقع
     let userLocation = null;       // { lat, lng } أو null
     let nearestStoreDistance = null; // مسافة أقرب مخزن بالكيلومتر

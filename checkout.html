@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>الدفع | أقرب مخزن إليك</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red: #d62828;
+      --red-dark: #b21f1f;
+      --bg: #f7f7f7;
+      --text: #222;
+      --muted: #666;
+      --card: #ffffff;
+      --border: #e5e5e5;
+      --green: #2a9d8f;
+      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+
+    html, body {
+      font-family: "Segoe UI", Tahoma, "Cairo", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* الشريط العلوي */
+    .topbar {
+      background: #000; color: #fff; font-size: 14px;
+      padding: 10px 24px;
+      display: flex; align-items: center; gap: 28px;
+      flex-wrap: wrap;
+    }
+    .topbar a { color: #fff; text-decoration: none; cursor: pointer; }
+    .topbar a:hover { opacity: 0.8; }
+    .topbar .ship-to {
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+
+    /* الهيدر */
+    .header {
+      background: #fff;
+      padding: 20px 24px;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 20px; flex-wrap: wrap;
+    }
+    .logo {
+      font-size: 28px; font-weight: 800; color: var(--red);
+      letter-spacing: 0.5px;
+    }
+    .logo small {
+      display: block; font-size: 11px; color: var(--muted);
+      font-weight: 400; letter-spacing: 2px;
+    }
+    .back-link {
+      color: var(--muted); text-decoration: none; font-size: 14px;
+      display: inline-flex; align-items: center; gap: 6px;
+    }
+    .back-link:hover { color: var(--red); }
+
+    /* مسار التنقل */
+    .breadcrumb {
+      max-width: 1200px;
+      margin: 16px auto 0;
+      padding: 0 16px;
+      font-size: 13px; color: var(--muted);
+    }
+    .breadcrumb a { color: var(--muted); text-decoration: none; }
+    .breadcrumb a:hover { color: var(--red); }
+    .breadcrumb .sep { margin: 0 6px; }
+
+    /* تخطيط الصفحة */
+    .checkout-wrap {
+      max-width: 1200px;
+      margin: 20px auto 40px;
+      padding: 0 16px;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 24px;
+    }
+    @media (max-width: 900px) {
+      .checkout-wrap { grid-template-columns: 1fr; }
+    }
+
+    .main-col, .sidebar-col { display: flex; flex-direction: column; gap: 16px; }
+
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+    .card h2 {
+      font-size: 18px; margin-bottom: 14px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .card h2 .num {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: var(--red); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700;
+    }
+
+    /* بطاقة المخزن (التعبئة التلقائية) */
+    .store-card {
+      background: linear-gradient(135deg, #e6f7f1, #c8ebdf);
+      border-right: 4px solid var(--green);
+      border-radius: 8px;
+      padding: 18px;
+    }
+    .store-card .label {
+      font-size: 13px; color: #0e7c5b; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .store-card .label .check {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: var(--green); color: #fff;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px;
+    }
+    .store-card .store-name {
+      font-size: 18px; font-weight: 800; color: #0e7c5b;
+      margin-bottom: 2px;
+    }
+    .store-card .store-meta {
+      font-size: 13px; color: #2a9d8f;
+    }
+    .store-card .auto-tag {
+      display: inline-block;
+      background: rgba(42, 157, 143, 0.15);
+      color: #0e7c5b;
+      font-size: 11px; font-weight: 600;
+      padding: 3px 10px; border-radius: 12px;
+      margin-top: 8px;
+    }
+
+    /* لا يوجد مخزن محفوظ */
+    .empty-card {
+      background: #fff5e6;
+      border-right: 4px solid #f59e0b;
+      padding: 18px; border-radius: 8px;
+    }
+    .empty-card h3 {
+      color: #92400e; margin-bottom: 6px; font-size: 16px;
+    }
+    .empty-card p {
+      color: #78350f; font-size: 14px; margin-bottom: 12px;
+    }
+    .empty-card a {
+      display: inline-block;
+      background: #f59e0b; color: #fff;
+      padding: 10px 18px; border-radius: 6px;
+      text-decoration: none; font-weight: 600; font-size: 14px;
+    }
+    .empty-card .inline-select {
+      margin-top: 12px;
+    }
+    .empty-card label {
+      display: block; font-size: 13px; margin-bottom: 6px; color: #78350f;
+    }
+    .empty-card select {
+      width: 100%; padding: 10px;
+      border: 1px solid #fde68a; border-radius: 6px;
+      background: #fff; font-family: inherit;
+    }
+
+    /* نموذج سبل */
+    .sebl-row {
+      display: flex; gap: 8px; margin-bottom: 8px;
+    }
+    .sebl-row input {
+      flex: 1; padding: 12px 14px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 15px; font-family: inherit;
+      direction: ltr; text-align: right;
+      text-transform: uppercase;
+    }
+    .sebl-row input:focus {
+      outline: none; border-color: var(--red);
+    }
+    .sebl-row button {
+      background: #111; color: #fff;
+      border: none; padding: 0 18px;
+      border-radius: 8px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      font-size: 14px; white-space: nowrap;
+    }
+    .sebl-row button:hover { background: #000; }
+    .sebl-hint {
+      font-size: 12px; color: var(--muted);
+      margin-top: 4px;
+    }
+    .sebl-result {
+      margin-top: 14px; padding: 14px 16px;
+      border-radius: 8px; font-size: 14px;
+      display: none;
+    }
+    .sebl-result.show { display: block; }
+    .sebl-result.ok {
+      background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c;
+    }
+    .sebl-result.err {
+      background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c;
+    }
+    .sebl-result .addr-line {
+      font-weight: 700; font-size: 15px; margin-top: 4px;
+    }
+    .sim-note {
+      background: #fef3c7; border: 1px solid #fde68a;
+      color: #78350f;
+      padding: 8px 12px; border-radius: 6px;
+      font-size: 12px; margin-top: 10px;
+    }
+
+    /* حقول العميل */
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-grid .full { grid-column: span 2; }
+    @media (max-width: 600px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-grid .full { grid-column: span 1; }
+    }
+    .form-group label {
+      display: block; font-size: 13px; margin-bottom: 4px; color: var(--text);
+    }
+    .form-group input, .form-group textarea {
+      width: 100%; padding: 10px 12px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-size: 14px; font-family: inherit; background: #fafafa;
+    }
+    .form-group input:focus, .form-group textarea:focus {
+      outline: none; border-color: var(--red); background: #fff;
+    }
+    .form-group textarea { min-height: 70px; resize: vertical; }
+
+    /* ملخص الطلب (sidebar) */
+    .summary-card { position: sticky; top: 16px; }
+    .summary-row {
+      display: flex; justify-content: space-between;
+      padding: 8px 0; font-size: 14px;
+      border-bottom: 1px dashed var(--border);
+    }
+    .summary-row:last-of-type { border-bottom: none; }
+    .summary-row.total {
+      font-weight: 800; font-size: 18px;
+      color: var(--red); padding-top: 12px;
+      border-top: 2px solid #eee; border-bottom: none;
+      margin-top: 8px;
+    }
+
+    /* ملخص نهائي (التحقّق) */
+    .final-summary {
+      background: #fff;
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+      display: none;
+    }
+    .final-summary.show { display: block; }
+    .final-summary h2 {
+      font-size: 18px; margin-bottom: 14px; color: var(--text);
+    }
+    .summary-pair {
+      display: flex; justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .summary-pair:last-child { border-bottom: none; }
+    .summary-pair .k { color: var(--muted); font-size: 13px; }
+    .summary-pair .v { font-weight: 700; }
+    .summary-pair .v.store { color: var(--green); }
+    .summary-pair .v.addr  { color: var(--text); }
+
+    .btn-confirm {
+      display: block; width: 100%;
+      background: var(--red); color: #fff;
+      border: none; padding: 16px;
+      font-size: 16px; font-weight: 700;
+      border-radius: 8px;
+      cursor: pointer; font-family: inherit;
+      margin-top: 16px;
+      transition: background 0.2s;
+    }
+    .btn-confirm:hover { background: var(--red-dark); }
+    .btn-confirm:disabled {
+      background: #ccc; cursor: not-allowed;
+    }
+
+    .footer {
+      text-align: center; padding: 24px;
+      color: var(--muted); font-size: 13px;
+      border-top: 1px solid var(--border); background: #fff;
+      margin-top: 40px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- الشريط الأسود العلوي -->
+  <div class="topbar">
+    <span class="ship-to">
+      <span>📍</span>
+      <span>يشحن إلى: <strong id="topbarStore">—</strong></span>
+    </span>
+    <a href="index.html">الرئيسية</a>
+    <a>الفروع</a>
+    <a>الشكاوى والاقتراحات</a>
+  </div>
+
+  <!-- الهيدر -->
+  <header class="header">
+    <a href="index.html" class="back-link">→ العودة للرئيسية</a>
+    <div class="logo">
+      المتجر
+      <small>STORE DEMO</small>
+    </div>
+  </header>
+
+  <!-- مسار التنقل -->
+  <nav class="breadcrumb">
+    <a href="index.html">الرئيسية</a>
+    <span class="sep">›</span>
+    <span>الدفع</span>
+  </nav>
+
+  <!-- المحتوى -->
+  <div class="checkout-wrap">
+
+    <!-- العمود الرئيسي -->
+    <div class="main-col">
+
+      <!-- 1) المخزن المختار (تعبئة تلقائية) -->
+      <div class="card">
+        <h2><span class="num">1</span> فرع التوصيل</h2>
+
+        <!-- يُعرض عند وجود اختيار محفوظ -->
+        <div class="store-card" id="storeCard" style="display:none;">
+          <div class="label">
+            <span class="check">✓</span>
+            <span>سيتم التوصيل من:</span>
+          </div>
+          <div class="store-name" id="storeName">—</div>
+          <div class="store-meta">رقم المخزن: <span id="storeId">—</span></div>
+          <span class="auto-tag" id="autoTag">⚡ تم تعبئته تلقائياً من موقعك</span>
+        </div>
+
+        <!-- يُعرض عند عدم وجود اختيار -->
+        <div class="empty-card" id="emptyCard" style="display:none;">
+          <h3>⚠️ لم نتعرّف على فرعك بعد</h3>
+          <p>لم تحدّد موقعك من الصفحة الرئيسية. يمكنك العودة لتحديده، أو اختيار منطقتك يدوياً هنا:</p>
+          <a href="index.html">→ العودة لتحديد الموقع</a>
+          <div class="inline-select">
+            <label for="manualStore">أو اختر منطقتك يدوياً:</label>
+            <select id="manualStore">
+              <option value="">-- اختر منطقة --</option>
+              <option value="6015">شمال الرياض</option>
+              <option value="6022">شرق الرياض</option>
+              <option value="6033">غرب الرياض</option>
+              <option value="6044">جنوب الرياض</option>
+              <option value="6055">وسط الرياض</option>
+              <option value="6066">حي الياسمين</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2) رمز العنوان الوطني (محاكاة سبل) -->
+      <div class="card">
+        <h2><span class="num">2</span> رمز العنوان الوطني</h2>
+
+        <div class="sebl-row">
+          <input type="text" id="seblInput"
+                 placeholder="مثال: RRRD2929"
+                 maxlength="8" />
+          <button id="seblBtn" type="button">الحصول على العنوان</button>
+        </div>
+        <p class="sebl-hint">
+          أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وسنجلب عنوانك تلقائياً.
+        </p>
+
+        <div class="sebl-result" id="seblResult"></div>
+
+        <p class="sim-note">
+          ⚠️ <strong>محاكاة لخدمة سبل:</strong> في الموقع الحقيقي يُجلب العنوان
+          الفعلي من API سبل. هنا نُولّد عنواناً وهمياً ثابتاً من نفس الرمز للتوضيح.
+        </p>
+      </div>
+
+      <!-- 3) معلومات العميل (اختيارية للنموذج) -->
+      <div class="card">
+        <h2><span class="num">3</span> بياناتك الشخصية</h2>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>الاسم الأول</label>
+            <input type="text" id="firstName" placeholder="عبدالعزيز" />
+          </div>
+          <div class="form-group">
+            <label>اللقب</label>
+            <input type="text" id="lastName" placeholder="—" />
+          </div>
+          <div class="form-group full">
+            <label>البريد الإلكتروني</label>
+            <input type="email" id="email" placeholder="example@email.com" />
+          </div>
+          <div class="form-group full">
+            <label>رقم الجوال</label>
+            <input type="tel" id="phone" placeholder="05XXXXXXXX" />
+          </div>
+          <div class="form-group full">
+            <label>تفاصيل إضافية (اختياري)</label>
+            <textarea id="notes" placeholder="ملاحظات لشركة التوصيل..."></textarea>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4) ملخّص نهائي للتأكّد -->
+      <div class="final-summary" id="finalSummary">
+        <h2>✓ ملخّص الطلب النهائي</h2>
+        <div class="summary-pair">
+          <span class="k">فرع التوصيل (تلقائي):</span>
+          <span class="v store" id="finalStore">—</span>
+        </div>
+        <div class="summary-pair">
+          <span class="k">رمز العنوان الوطني:</span>
+          <span class="v" id="finalCode">—</span>
+        </div>
+        <div class="summary-pair">
+          <span class="k">عنوان التسليم:</span>
+          <span class="v addr" id="finalAddr">—</span>
+        </div>
+        <button class="btn-confirm" id="placeOrderBtn">تأكيد الطلب</button>
+      </div>
+
+    </div>
+
+    <!-- العمود الجانبي: ملخّص الطلب -->
+    <aside class="sidebar-col">
+      <div class="card summary-card">
+        <h2>ملخّص الطلب</h2>
+        <div class="summary-row">
+          <span>المجموع الفرعي</span>
+          <span>33.91 ريال</span>
+        </div>
+        <div class="summary-row">
+          <span>الشحن (6 أيام عمل)</span>
+          <span>20.00 ريال</span>
+        </div>
+        <div class="summary-row">
+          <span>الضريبة</span>
+          <span>8.09 ريال</span>
+        </div>
+        <div class="summary-row total">
+          <span>الإجمالي</span>
+          <span>62.00 ريال</span>
+        </div>
+      </div>
+    </aside>
+
+  </div>
+
+  <footer class="footer">
+    نموذج أولي — صفحة Checkout محاكاة · للتجربة فقط
+  </footer>
+
+  <!-- المنطق المشترك (stores, Haversine, save/load, محاكاة سبل) -->
+  <script src="app.js"></script>
+  <script>
+    /* ============================================================
+       منطق صفحة الـ Checkout
+       ------------------------------------------------------------
+       *** النقطة الجوهرية المراد إثباتها: ***
+       المخزن يُحسب مرّة واحدة في الصفحة الرئيسية من إحداثيات العميل
+       عبر Haversine، ويُمرَّر لهذه الصفحة كما هو (auto-fill).
+       العنوان النصي (من سبل) منفصل تماماً — لا يؤثر على اختيار
+       المخزن. نفس الإحداثية = نفس المخزن دائماً، وبالتالي:
+       لا يوجد تناقض ممكن بين الصفحتين.
+
+       *** نقاط الاستبدال في Magento الحقيقي: ***
+       - loadSelection() (sessionStorage) → Customer Session/Quote.
+       - simulateSebl()                   → API سبل الفعلي.
+       ============================================================ */
+
+    // ====== 1) تعبئة تلقائية للمخزن من sessionStorage ======
+    const selection = loadSelection(); // من app.js
+    const storeCard = document.getElementById('storeCard');
+    const emptyCard = document.getElementById('emptyCard');
+    const topbarStoreEl = document.getElementById('topbarStore');
+
+    function renderStoreCard(sel) {
+      document.getElementById('storeName').textContent = sel.storeName;
+      document.getElementById('storeId').textContent   = sel.storeId;
+      topbarStoreEl.textContent = sel.storeName;
+
+      // وسم المصدر: تلقائي vs يدوي
+      const tag = document.getElementById('autoTag');
+      if (sel.source === 'manual') {
+        tag.textContent = '✏️ اخترته يدوياً';
+        tag.style.background = 'rgba(212, 40, 40, 0.12)';
+        tag.style.color = '#9b1c1c';
+      } else {
+        tag.textContent = '⚡ تم تعبئته تلقائياً من موقعك';
+      }
+
+      storeCard.style.display = 'block';
+      emptyCard.style.display = 'none';
+    }
+
+    if (selection && selection.storeId) {
+      renderStoreCard(selection);
+    } else {
+      // لا توجد بيانات محفوظة — اعرض كرت بديل بخيار اختيار يدوي
+      storeCard.style.display = 'none';
+      emptyCard.style.display = 'block';
+      topbarStoreEl.textContent = 'لم يُحدَّد';
+    }
+
+    // اختيار يدوي من داخل صفحة الـ checkout (إن دخل العميل مباشرة)
+    document.getElementById('manualStore').addEventListener('change', (e) => {
+      const id = parseInt(e.target.value, 10);
+      if (!id) return;
+      const store = getStoreById(id); // من app.js
+      if (!store) return;
+      const sel = {
+        lat: null, lng: null, accuracy: null,
+        storeId: store.id, storeName: store.name,
+        distance: null, source: 'manual'
+      };
+      saveSelection(sel);
+      renderStoreCard(sel);
+      updateFinalSummary();
+    });
+
+    // ====== 2) محاكاة سبل ======
+    const seblInput  = document.getElementById('seblInput');
+    const seblBtn    = document.getElementById('seblBtn');
+    const seblResult = document.getElementById('seblResult');
+
+    let resolvedAddress = null; // العنوان الذي تم استخراجه من المحاكاة
+
+    seblBtn.addEventListener('click', () => {
+      const result = simulateSebl(seblInput.value); // من app.js
+      seblResult.classList.remove('ok', 'err');
+      if (!result.ok) {
+        seblResult.classList.add('show', 'err');
+        seblResult.innerHTML = `❌ ${result.error}`;
+        resolvedAddress = null;
+      } else {
+        seblResult.classList.add('show', 'ok');
+        seblResult.innerHTML = `
+          ✓ تم جلب العنوان (محاكاة):
+          <div class="addr-line">${result.address}</div>
+        `;
+        resolvedAddress = result;
+      }
+      updateFinalSummary();
+    });
+
+    // السماح بإرسال الضغط على Enter
+    seblInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') seblBtn.click();
+    });
+
+    // ====== 3) الملخّص النهائي + زر التأكيد ======
+    const finalSummary = document.getElementById('finalSummary');
+
+    function updateFinalSummary() {
+      const sel = loadSelection();
+      const hasStore = sel && sel.storeId;
+      const hasAddr  = resolvedAddress && resolvedAddress.ok;
+
+      if (hasStore && hasAddr) {
+        document.getElementById('finalStore').textContent =
+          `${sel.storeName} (رقم ${sel.storeId})`;
+        document.getElementById('finalCode').textContent = resolvedAddress.code;
+        document.getElementById('finalAddr').textContent = resolvedAddress.address;
+        finalSummary.classList.add('show');
+      } else {
+        finalSummary.classList.remove('show');
+      }
+    }
+
+    document.getElementById('placeOrderBtn').addEventListener('click', () => {
+      const sel = loadSelection();
+      alert(
+        '✓ تم تأكيد الطلب (محاكاة)\n\n' +
+        `الفرع: ${sel.storeName} (${sel.storeId})\n` +
+        `العنوان: ${resolvedAddress.address}\n` +
+        `الرمز: ${resolvedAddress.code}\n\n` +
+        '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
+      );
+    });
+  </script>
+</body>
+</html>
