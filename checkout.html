@@ -190,6 +190,32 @@
       font-size: 14px; white-space: nowrap;
     }
     .sebl-row button:hover { background: #000; }
+    .sebl-row button:disabled { background: #999; cursor: wait; }
+    .sebl-row button .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid #fff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      vertical-align: middle;
+      margin-left: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .addr-fields {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+      font-size: 13px;
+    }
+    .addr-fields .f {
+      background: #fff;
+      border: 1px solid #cfe7ff;
+      padding: 8px 10px; border-radius: 6px;
+    }
+    .addr-fields .f .k { color: #5b7d99; font-size: 11px; margin-bottom: 2px; }
+    .addr-fields .f .v { font-weight: 700; color: #0a558c; font-size: 13px; }
     .sebl-hint {
       font-size: 12px; color: var(--muted);
       margin-top: 4px;
@@ -385,9 +411,9 @@
 
         <div class="sebl-result" id="seblResult"></div>
 
-        <p class="sim-note">
-          ⚠️ <strong>محاكاة لخدمة سبل:</strong> في الموقع الحقيقي يُجلب العنوان
-          الفعلي من API سبل. هنا نُولّد عنواناً وهمياً ثابتاً من نفس الرمز للتوضيح.
+        <p class="sim-note" id="seblModeNote">
+          ✓ <strong>متصل بـ API سبل عبر باك إند آمن</strong> — العنوان يُجلب من الخادم
+          الرسمي ولا يُكشف الـ Subscription Key للمتصفّح.
         </p>
       </div>
 
@@ -535,30 +561,71 @@
       updateFinalSummary();
     });
 
-    // ====== 2) محاكاة سبل ======
+    // ====== 2) استدعاء سبل الفعلي عبر الباك إند ======
     const seblInput  = document.getElementById('seblInput');
     const seblBtn    = document.getElementById('seblBtn');
     const seblResult = document.getElementById('seblResult');
+    const seblBtnText = seblBtn.innerHTML;
 
-    let resolvedAddress = null; // العنوان الذي تم استخراجه من المحاكاة
+    let resolvedAddress = null; // العنوان الذي تم استخراجه من سبل
 
-    seblBtn.addEventListener('click', () => {
-      const result = simulateSebl(seblInput.value); // من app.js
+    function renderAddressFields(r) {
+      // حقول مفصّلة لعرض الرد كاملاً
+      return `
+        <div class="addr-fields">
+          <div class="f"><div class="k">المنطقة</div><div class="v">${r.region || '—'}</div></div>
+          <div class="f"><div class="k">المدينة</div><div class="v">${r.city || '—'}</div></div>
+          <div class="f"><div class="k">الحي</div><div class="v">${r.district || '—'}</div></div>
+          <div class="f"><div class="k">الشارع</div><div class="v">${r.street || '—'}</div></div>
+          <div class="f"><div class="k">رقم المبنى</div><div class="v">${r.building || '—'}</div></div>
+          <div class="f"><div class="k">الرمز البريدي</div><div class="v">${r.postCode || '—'}</div></div>
+          <div class="f"><div class="k">الرقم الإضافي</div><div class="v">${r.additionalNumber || '—'}</div></div>
+          <div class="f"><div class="k">الإحداثيات</div><div class="v" style="direction:ltr;text-align:right;">${r.lat?.toFixed(5) || '—'}, ${r.lng?.toFixed(5) || '—'}</div></div>
+        </div>
+      `;
+    }
+
+    async function lookupSebl() {
+      // أظهر حالة التحميل
+      seblBtn.disabled = true;
+      seblBtn.innerHTML = 'جارٍ الجلب <span class="spinner"></span>';
       seblResult.classList.remove('ok', 'err');
-      if (!result.ok) {
-        seblResult.classList.add('show', 'err');
-        seblResult.innerHTML = `❌ ${result.error}`;
-        resolvedAddress = null;
-      } else {
-        seblResult.classList.add('show', 'ok');
-        seblResult.innerHTML = `
-          ✓ تم جلب العنوان (محاكاة):
-          <div class="addr-line">${result.address}</div>
-        `;
-        resolvedAddress = result;
+      seblResult.classList.add('show');
+      seblResult.style.background = '#f5f5f5';
+      seblResult.style.border = '1px solid #e0e0e0';
+      seblResult.style.color = '#666';
+      seblResult.innerHTML = '⏳ جارٍ الاتصال بخادم سبل...';
+
+      try {
+        const result = await fetchSeblAddress(seblInput.value, 'A'); // من app.js
+        // أعد ضبط أنماط التحميل المؤقتة
+        seblResult.style.background = '';
+        seblResult.style.border = '';
+        seblResult.style.color = '';
+
+        if (!result.ok) {
+          seblResult.classList.remove('ok');
+          seblResult.classList.add('err');
+          seblResult.innerHTML = `❌ ${result.error}`;
+          resolvedAddress = null;
+        } else {
+          seblResult.classList.remove('err');
+          seblResult.classList.add('ok');
+          seblResult.innerHTML = `
+            ✓ تم جلب العنوان من سبل بنجاح:
+            <div class="addr-line">${result.address}</div>
+            ${renderAddressFields(result)}
+          `;
+          resolvedAddress = result;
+        }
+      } finally {
+        seblBtn.disabled = false;
+        seblBtn.innerHTML = seblBtnText;
+        updateFinalSummary();
       }
-      updateFinalSummary();
-    });
+    }
+
+    seblBtn.addEventListener('click', lookupSebl);
 
     // السماح بإرسال الضغط على Enter
     seblInput.addEventListener('keydown', (e) => {

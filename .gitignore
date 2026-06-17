@@ -13,9 +13,11 @@ desktop.ini
 *.log
 npm-debug.log*
 
-# Env
+# Env (لا ترفع المفاتيح أبداً)
 .env
 .env.local
+.env*.local
+.vercel
 
 # Node (in case تستخدمه لاحقاً)
 node_modules/

@@ -43,13 +43,16 @@
 
 ## ملفات المشروع
 
-| الملف           | الوصف                                                              |
-|-----------------|-------------------------------------------------------------------|
-| `index.html`    | الصفحة الرئيسية: تحديد الموقع + المنتجات + زر المتابعة للدفع.     |
-| `checkout.html` | صفحة الدفع: تعبئة تلقائية للمخزن + محاكاة سبل + ملخّص نهائي.       |
-| `app.js`        | **منطق مشترك**: stores, Haversine, save/load, محاكاة سبل.         |
-| `README.md`     | هذا الملف.                                                         |
-| `.gitignore`    | استثناءات Git.                                                     |
+| الملف                        | الوصف                                                              |
+|-----------------------------|-------------------------------------------------------------------|
+| `index.html`                | الصفحة الرئيسية: تحديد الموقع + الخريطة + المنتجات + زر المتابعة.  |
+| `checkout.html`             | صفحة الدفع: تعبئة تلقائية للمخزن + استدعاء سبل الفعلي + ملخّص.     |
+| `app.js`                    | منطق مشترك: stores, Haversine, save/load, **fetchSeblAddress**.   |
+| `api/national-address.js`   | **Vercel Serverless Function** — proxy آمن لـ API سبل.            |
+| `vercel.json`               | إعدادات النشر على Vercel.                                          |
+| `.env.example`              | قالب المتغيّرات السرية (لا ترفع `.env.local` الحقيقي).             |
+| `.gitignore`                | يستثني `.env*.local` و `.vercel`.                                  |
+| `README.md`                 | هذا الملف.                                                         |
 
 ---
 
@@ -69,16 +72,70 @@ open index.html
 
 ---
 
+## 🔥 نشر الباك إند على Vercel (لتشغيل سبل الفعلي)
+
+الباك إند يعمل كـ **proxy** بين الواجهة و API سبل، يحفظ الـ Subscription Key
+على الخادم بأمان (لا يصل المتصفّح أبداً).
+
+### الخطوات (مرة واحدة فقط):
+
+```powershell
+# 1) من مجلد المشروع
+cd C:\Users\DELL\Desktop\nearest-store-finder
+
+# 2) سجّل دخول Vercel (يفتح المتصفّح)
+npx vercel login
+
+# 3) اربط المشروع — اقبل القيم الافتراضية
+npx vercel
+
+# 4) أضف مفتاح سبل كمتغيّر بيئة (لكل البيئات: production / preview / development)
+npx vercel env add SEBL_API_KEY production
+# سيطلب القيمة — الصق المفتاح هنا. كرّر للـ preview و development إن أردت.
+
+# 5) انشر للإنتاج
+npx vercel --prod
+```
+
+بعد آخر أمر ستحصل على رابط شكلها: `https://nearest-store-finder-xxx.vercel.app`
+
+### اختبار API سريعاً:
+
+```bash
+curl "https://your-vercel-url.vercel.app/api/national-address?shortaddress=RRRD3005&language=A"
+```
+
+### تجربة محلية قبل النشر:
+
+```powershell
+# يشغّل خادم محلي على http://localhost:3000 ويُحمّل .env.local
+echo "SEBL_API_KEY=your-key-here" > .env.local
+npx vercel dev
+```
+
+### استخدام GitHub Pages مع باك إند Vercel:
+
+عدّل `app.js` أو أضف قبل تحميله في `index.html` / `checkout.html`:
+
+```html
+<script>window.SEBL_API_BASE = 'https://your-vercel-url.vercel.app';</script>
+<script src="app.js"></script>
+```
+
+> الـ API بالفعل يدعم CORS من أي origin، فلا حاجة لإعدادات إضافية.
+
+---
+
 ## نقاط المحاكاة الواضحة (و كيفية استبدالها في Magento)
 
 كل ما هو **محاكاة** علّقنا عليه في الكود بوضوح. هنا الخريطة الكاملة لنقاط الاستبدال:
 
-| في النموذج (محاكاة)                       | في Magento الحقيقي                                       |
-|------------------------------------------|----------------------------------------------------------|
-| `const stores = [...]` في `app.js`        | بيانات من قاعدة بيانات Magento (50+ مخزن حقيقي).         |
-| `sessionStorage` لتمرير الاختيار           | `Customer Session` أو `Quote` على الـ backend.           |
-| `simulateSebl(code)` يعيد عنواناً وهمياً    | استدعاء API سبل الفعلي + تخزين العنوان على الـ Customer. |
-| `alert("تم تأكيد الطلب")`                  | إنشاء **Order** فعلي عبر Magento Order API.              |
+| في النموذج                                     | في Magento الحقيقي                                       |
+|-----------------------------------------------|----------------------------------------------------------|
+| `const stores = [...]` في `app.js`             | بيانات من قاعدة بيانات Magento (50+ مخزن حقيقي).         |
+| `sessionStorage` لتمرير الاختيار                | `Customer Session` أو `Quote` على الـ backend.           |
+| **`fetchSeblAddress` ← Vercel proxy ← سبل** ✓ | المنطق نفسه، فقط تنقل الـ proxy إلى Magento PHP module.  |
+| `alert("تم تأكيد الطلب")`                       | إنشاء **Order** فعلي عبر Magento Order API.              |
 
 > **المهم:** المنطق الحقيقي (`haversineKm`, `findRankedStores`) لا يتغيّر — فقط مصادر البيانات.
 

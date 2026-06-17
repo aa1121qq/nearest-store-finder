@@ -110,13 +110,87 @@ function clearSelection() {
   try { sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
 }
 
-/* ====== 4) محاكاة سبل (Sebl) — للنموذج فقط ======
-   *** هذه محاكاة فقط. ***
-   - في الموقع الحقيقي: يُرسَل الرمز الوطني إلى API سبل،
-     ويُسترجَع العنوان الفعلي (مدينة/حي/شارع/مبنى/إحداثيات).
-   - هنا فقط نتحقق من النمط (4 أحرف لاتينية + 4 أرقام)
-     ونعيد عنواناً وهمياً ثابتاً مشتقّاً من الرمز.
-   ================================================ */
+/* ====== 4) Sebl API — استدعاء الباك إند الفعلي ======
+   - الباك إند موجود في `api/national-address.js` (Vercel function).
+   - الـ Subscription Key محفوظ كـ env var على الخادم.
+   - الواجهة هنا فقط ترسل الرمز وتعرض الرد.
+   ----------------------------------------------------
+   كيف يُحدَّد عنوان الخادم:
+   - عند تشغيل المشروع من Vercel (نفس الدومين): مسار نسبي "/api".
+   - عند GitHub Pages أو لوكال: يمكن تجاوز ذلك بضبط
+     `window.SEBL_API_BASE` قبل تحميل app.js
+     (مثلاً <script>window.SEBL_API_BASE="https://nsf.vercel.app"</script>).
+   ==================================================== */
+
+// قاعدة عنوان الـ API. فارغة = نفس الأصل (يعمل على Vercel/local).
+// عند نشر الواجهة على GitHub Pages مع الباك إند على Vercel — اضبط هذا.
+const SEBL_API_BASE = (typeof window !== 'undefined' && window.SEBL_API_BASE) || '';
+
+async function fetchSeblAddress(code, language) {
+  language = language || 'A'; // A = العربية كأساس، E = الإنجليزية
+
+  if (!code || typeof code !== 'string') {
+    return { ok: false, error: 'الرجاء إدخال رمز العنوان الوطني.' };
+  }
+  const trimmed = code.trim().toUpperCase();
+  if (!/^[A-Z]{4}[0-9]{4}$/.test(trimmed)) {
+    return {
+      ok: false,
+      error: 'تنسيق الرمز غير صحيح. مثال صالح: RRRD3005 (4 أحرف + 4 أرقام).'
+    };
+  }
+
+  const url = `${SEBL_API_BASE}/api/national-address?shortaddress=${encodeURIComponent(trimmed)}&language=${language}`;
+
+  try {
+    const resp = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    const body = await resp.json().catch(() => ({}));
+
+    if (!resp.ok || !body.success) {
+      return {
+        ok: false,
+        code: trimmed,
+        error: body.error || `خطأ من الخادم (HTTP ${resp.status}).`,
+        status: resp.status
+      };
+    }
+
+    const d = body.data;
+    // اختر اللغة المرغوبة (العربية كأساس لأن المستخدم عربي)
+    const useAr = (language === 'A');
+    const region   = (useAr ? d.ar.regionName : d.en.regionName) || d.ar.regionName || d.en.regionName;
+    const city     = (useAr ? d.ar.city       : d.en.city)       || d.ar.city       || d.en.city;
+    const district = (useAr ? d.ar.district   : d.en.district)   || d.ar.district   || d.en.district;
+    const street   = (useAr ? d.ar.street     : d.en.street)     || d.ar.street     || d.en.street;
+
+    return {
+      ok: true,
+      code: d.shortAddress,
+      address: `${city}، حي ${district}، شارع ${street}، مبنى ${d.buildingNumber}`,
+      city, district, street,
+      region,
+      building: d.buildingNumber,
+      postCode: d.postCode,
+      additionalNumber: d.additionalNumber,
+      lat: d.latitude,
+      lng: d.longitude,
+      raw: d
+    };
+  } catch (e) {
+    return {
+      ok: false,
+      code: trimmed,
+      error: 'تعذّر الاتصال بالخادم. تأكّد أن الباك إند منشور وأن الرابط صحيح.'
+    };
+  }
+}
+
+/* ====== 4-bis) محاكاة سبل — احتياطي عند تعطل الباك إند ======
+   تبقى متاحة لأغراض العرض/الديمو فقط. لن تُستخدم تلقائياً —
+   الواجهة تستدعي fetchSeblAddress الفعلية أوّلاً، وفي حالة
+   الفشل تُعرض رسالة خطأ. لو أردت العودة للمحاكاة (مثلاً لعرض
+   الأقرباء بدون مفتاح): استخدم simulateSebl يدوياً.
+   ============================================================= */
 function simulateSebl(code) {
   if (!code || typeof code !== 'string') {
     return { ok: false, error: 'الرجاء إدخال رمز العنوان الوطني.' };
