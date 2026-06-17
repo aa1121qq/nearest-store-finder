@@ -17,11 +17,18 @@ const SHORTADDR_PATTERN = /^[A-Z]{4}[0-9]{4}$/;
 
 function setCors(res) {
   // GitHub Pages قد ينادي هذا الـ endpoint من نطاق مختلف — لذا نسمح بالكل.
-  // في الإنتاج يمكن تقييدها إلى نطاق الواجهة فقط (مثل https://aa1121qq.github.io).
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-  res.setHeader('Cache-Control', 'public, max-age=300'); // كاش 5 دقائق
+}
+
+function cacheSuccess(res) {
+  // كاش للردود الناجحة فقط (5 دقائق)
+  res.setHeader('Cache-Control', 'public, max-age=300');
+}
+function noCache(res) {
+  // رسائل الخطأ لا تُكاش حتى يصلح المستخدم المشكلة فوراً
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
 }
 
 module.exports = async function handler(req, res) {
@@ -37,6 +44,7 @@ module.exports = async function handler(req, res) {
   // 1) قراءة المدخلات والتحقّق من النمط
   const raw = (req.query.shortaddress || '').toString().trim().toUpperCase();
   if (!raw) {
+    noCache(res);
     return res.status(400).json({
       success: false,
       code: 'MISSING_SHORTADDRESS',
@@ -44,6 +52,7 @@ module.exports = async function handler(req, res) {
     });
   }
   if (!SHORTADDR_PATTERN.test(raw)) {
+    noCache(res);
     return res.status(400).json({
       success: false,
       code: 'INVALID_FORMAT',
@@ -56,6 +65,7 @@ module.exports = async function handler(req, res) {
   // 2) التأكّد من وجود الـ Subscription Key
   const SEBL_KEY = process.env.SEBL_API_KEY;
   if (!SEBL_KEY) {
+    noCache(res);
     return res.status(500).json({
       success: false,
       code: 'NO_KEY',
@@ -81,6 +91,7 @@ module.exports = async function handler(req, res) {
       }
     });
   } catch (e) {
+    noCache(res);
     return res.status(502).json({
       success: false,
       code: 'UPSTREAM_NETWORK',
@@ -90,6 +101,7 @@ module.exports = async function handler(req, res) {
 
   // 4) ترجمة أخطاء سبل
   if (!upstreamRes.ok) {
+    noCache(res);
     const text = await upstreamRes.text().catch(() => '');
     const map = {
       400: 'طلب غير صحيح (تنسيق الرمز خاطئ أو الرمز غير موجود).',
@@ -113,6 +125,7 @@ module.exports = async function handler(req, res) {
   try {
     data = await upstreamRes.json();
   } catch {
+    noCache(res);
     return res.status(502).json({
       success: false,
       code: 'BAD_UPSTREAM_JSON',
@@ -121,6 +134,7 @@ module.exports = async function handler(req, res) {
   }
 
   if (!data.success || !Array.isArray(data.Addresses) || data.Addresses.length === 0) {
+    noCache(res);
     return res.status(404).json({
       success: false,
       code: 'NOT_FOUND',
@@ -131,6 +145,7 @@ module.exports = async function handler(req, res) {
   const a = data.Addresses[0];
 
   // 6) تطبيع للواجهة — حقول مرتّبة بالعربي والإنجليزي
+  cacheSuccess(res);
   return res.status(200).json({
     success: true,
     data: {
