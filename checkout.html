@@ -229,6 +229,51 @@
       text-align: left;
       font-family: "Consolas", monospace;
     }
+
+    /* ===== فحص تطابق الموقع (GPS vs Sebl) ===== */
+    .match-check {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      border: 1px solid;
+      display: none;
+    }
+    .match-check.show { display: block; }
+    .match-check.ok {
+      background: #e6f7f1;
+      border-color: #a7e0d0;
+      color: #0e7c5b;
+    }
+    .match-check.warn {
+      background: #fff8e1;
+      border-color: #ffe082;
+      color: #856404;
+    }
+    .match-check.block {
+      background: #fde8e8;
+      border-color: #f5b5b5;
+      color: #9b1c1c;
+    }
+    .match-check .title {
+      font-weight: 800; font-size: 14px;
+      margin-bottom: 8px;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .match-check .row {
+      display: flex; justify-content: space-between;
+      font-size: 12px; padding: 2px 0;
+      font-family: "Consolas", monospace;
+    }
+    .match-check .row span:first-child { font-family: inherit; opacity: 0.85; }
+    .match-check .distance-big {
+      font-size: 22px; font-weight: 800;
+      margin-top: 6px;
+    }
+    .match-check .msg {
+      margin-top: 8px; font-size: 13px;
+      font-family: inherit;
+      line-height: 1.5;
+    }
     .sebl-hint {
       font-size: 12px; color: var(--muted);
       margin-top: 4px;
@@ -424,6 +469,15 @@
         </p>
 
         <div class="sebl-result" id="seblResult"></div>
+
+        <!-- بطاقة فحص تطابق الموقع: GPS vs Sebl -->
+        <div class="match-check" id="matchCheck">
+          <div class="title" id="matchTitle">—</div>
+          <div class="row"><span>إحداثيات GPS الخاصة بك</span> <span id="matchGps">—</span></div>
+          <div class="row"><span>إحداثيات العنوان من سبل</span> <span id="matchSebl">—</span></div>
+          <div class="distance-big" id="matchDistance">—</div>
+          <div class="msg" id="matchMsg"></div>
+        </div>
 
         <p class="sim-note" id="seblModeNote" style="margin-bottom:16px;">
           ✓ <strong>متصل بـ API سبل عبر باك إند آمن</strong> — الحقول التالية ستُعبّأ من
@@ -659,6 +713,89 @@
       }
     }
 
+    /* ============================================================
+       فحص تطابق الموقع — GPS العميل vs إحداثيات سبل
+       ------------------------------------------------------------
+       - ≤ 1 كم: ✅ تطابق ممتاز
+       - 1 - 5 كم: ⚠️ تحذير لكن يمكن الإكمال
+       - > 5 كم: ❌ فرق كبير، نمنع إكمال الطلب
+
+       منطقياً: لو فرق بسيط = GPS متذبذب قليلاً وهذا طبيعي.
+                لو فرق كبير = العميل أدخل رمز مكان آخر تماماً.
+       ============================================================ */
+    const MATCH_OK_KM    = 1;   // ضمن هذا المدى = تطابق ممتاز
+    const MATCH_BLOCK_KM = 5;   // أكثر من هذا = منع الطلب
+
+    const matchCheck    = document.getElementById('matchCheck');
+    const matchTitle    = document.getElementById('matchTitle');
+    const matchGps      = document.getElementById('matchGps');
+    const matchSebl     = document.getElementById('matchSebl');
+    const matchDistance = document.getElementById('matchDistance');
+    const matchMsg      = document.getElementById('matchMsg');
+
+    // متغيّر يحفظ نتيجة الفحص (يقرأها زر تأكيد الطلب)
+    let locationMatch = { status: 'unknown', distance: null };
+
+    function runLocationMatchCheck(seblLat, seblLng) {
+      const sel = loadSelection(); // فيها lat/lng لو من Geolocation
+      const gpsLat = sel && sel.lat != null ? sel.lat : null;
+      const gpsLng = sel && sel.lng != null ? sel.lng : null;
+
+      // لو ما فيه GPS (اختيار يدوي للمخزن): تخطّ الفحص
+      if (gpsLat === null || gpsLng === null) {
+        matchCheck.className = 'match-check show ok';
+        matchTitle.innerHTML = '✓ تخطّي الفحص — لا توجد إحداثيات GPS';
+        matchGps.textContent = 'غير متوفّر (اختيار يدوي)';
+        matchSebl.textContent = `${seblLat.toFixed(6)}, ${seblLng.toFixed(6)}`;
+        matchDistance.textContent = '—';
+        matchMsg.textContent = 'تم اختيار المخزن يدوياً — لا يمكن مقارنة الإحداثيات.';
+        locationMatch = { status: 'skipped', distance: null };
+        return;
+      }
+
+      // احسب المسافة بـ Haversine (موجودة في app.js)
+      const distKm = haversineKm(gpsLat, gpsLng, seblLat, seblLng);
+      const distM = Math.round(distKm * 1000);
+
+      matchGps.textContent  = `${gpsLat.toFixed(6)}, ${gpsLng.toFixed(6)}`;
+      matchSebl.textContent = `${seblLat.toFixed(6)}, ${seblLng.toFixed(6)}`;
+      matchDistance.textContent =
+        distKm < 1 ? `الفرق: ${distM} متر` : `الفرق: ${distKm.toFixed(2)} كم`;
+
+      matchCheck.classList.add('show');
+      matchCheck.classList.remove('ok', 'warn', 'block');
+
+      if (distKm <= MATCH_OK_KM) {
+        // تطابق ممتاز
+        matchCheck.classList.add('ok');
+        matchTitle.innerHTML = '✅ تطابق ممتاز — يمكن إكمال الطلب';
+        matchMsg.innerHTML =
+          'إحداثيات GPS الخاصة بك قريبة جداً من العنوان الذي أدخلته في سبل. ' +
+          'العميل في نفس الموقع تقريباً.';
+        locationMatch = { status: 'ok', distance: distKm };
+      } else if (distKm <= MATCH_BLOCK_KM) {
+        // تحذير — مسموح
+        matchCheck.classList.add('warn');
+        matchTitle.innerHTML = '⚠️ فرق متوسط — يمكنك الإكمال مع التحقّق';
+        matchMsg.innerHTML =
+          'هناك فرق <strong>' + distKm.toFixed(2) + ' كم</strong> بين موقعك الحالي وعنوان سبل. ' +
+          'قد يكون هذا طبيعياً لو أنت في مكان آخر مؤقتاً — تأكّد أن العنوان صحيح قبل التأكيد.';
+        locationMatch = { status: 'warn', distance: distKm };
+      } else {
+        // محظور
+        matchCheck.classList.add('block');
+        matchTitle.innerHTML = '❌ فرق كبير جداً — لا يمكن إكمال الطلب';
+        matchMsg.innerHTML =
+          'الفرق <strong>' + distKm.toFixed(2) + ' كم</strong> بين موقعك (GPS) والعنوان من سبل أكبر من ' +
+          MATCH_BLOCK_KM + ' كم. ' +
+          'تأكّد من صحة <strong>رمز العنوان الوطني</strong> الذي أدخلته، ' +
+          'أو أعد تحديد موقعك من <a href="index.html" style="color:inherit;text-decoration:underline;">الصفحة الرئيسية</a>.';
+        locationMatch = { status: 'block', distance: distKm };
+      }
+      // حدّث حالة زر التأكيد
+      updateFinalSummary();
+    }
+
     // وسم أي حقل المستخدم عدّله بعد التعبئة كـ "تم التعديل يدوياً"
     ADDRESS_FIELDS.forEach(f => {
       const el = document.getElementById(f.id);
@@ -705,6 +842,10 @@
           `;
           resolvedAddress = result;
           populateAddressFields(result); // ← التعبئة التلقائية
+          // فحص تطابق إحداثيات GPS مع إحداثيات سبل
+          if (result.lat != null && result.lng != null) {
+            runLocationMatchCheck(result.lat, result.lng);
+          }
         }
       } finally {
         seblBtn.disabled = false;
@@ -750,6 +891,8 @@
       // نعتبر العنوان جاهزاً عند توفّر المدينة والحي والشارع كحد أدنى
       const hasAddr  = addr.city && addr.district && addr.street;
 
+      const placeBtn = document.getElementById('placeOrderBtn');
+
       if (hasStore && hasAddr) {
         document.getElementById('finalStore').textContent =
           `${sel.storeName} (رقم ${sel.storeId})`;
@@ -757,6 +900,15 @@
           (resolvedAddress && resolvedAddress.code) || '— (إدخال يدوي)';
         document.getElementById('finalAddr').textContent = addr.full;
         finalSummary.classList.add('show');
+
+        // عطّل الزر إذا فحص الموقع رجع بـ block
+        if (locationMatch.status === 'block') {
+          placeBtn.disabled = true;
+          placeBtn.textContent = '❌ لا يمكن التأكيد — راجع رمز العنوان';
+        } else {
+          placeBtn.disabled = false;
+          placeBtn.textContent = 'تأكيد الطلب';
+        }
       } else {
         finalSummary.classList.remove('show');
       }
@@ -770,16 +922,33 @@
       });
 
     document.getElementById('placeOrderBtn').addEventListener('click', () => {
+      // طبقة أمان ثانية: لو الفحص رجع block — ارفض
+      if (locationMatch.status === 'block') {
+        alert(
+          '❌ لا يمكن إكمال الطلب\n\n' +
+          `الفرق بين موقعك والعنوان من سبل: ${locationMatch.distance.toFixed(2)} كم\n` +
+          `الحد المسموح: ${MATCH_BLOCK_KM} كم\n\n` +
+          'الرجاء التأكد من رمز العنوان الوطني أو إعادة تحديد موقعك.'
+        );
+        return;
+      }
+
       const sel  = loadSelection();
       const addr = getCurrentAddress();
       const code = (resolvedAddress && resolvedAddress.code) || '(لم يُستخدم رمز وطني)';
+      const matchInfo = locationMatch.status === 'ok'
+          ? `تطابق الموقع: ✅ ممتاز (${(locationMatch.distance * 1000).toFixed(0)} م)`
+          : locationMatch.status === 'warn'
+          ? `تطابق الموقع: ⚠️ ${locationMatch.distance.toFixed(2)} كم — مقبول`
+          : 'تطابق الموقع: غير مفحوص';
       alert(
         '✓ تم تأكيد الطلب (محاكاة)\n\n' +
         `الفرع: ${sel.storeName} (${sel.storeId})\n` +
         `الرمز الوطني: ${code}\n` +
         `العنوان: ${addr.full}\n` +
         `المدينة/الحي/الشارع: ${addr.city} / ${addr.district} / ${addr.street}\n` +
-        `الإحداثيات: ${addr.lat || '—'} , ${addr.lng || '—'}\n\n` +
+        `الإحداثيات: ${addr.lat || '—'} , ${addr.lng || '—'}\n` +
+        matchInfo + '\n\n' +
         '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
       );
     });
