@@ -144,8 +144,25 @@ module.exports = async function handler(req, res) {
 
   const a = data.Addresses[0];
 
-  // 6) تطبيع للواجهة — حقول مرتّبة بالعربي والإنجليزي
+  // 6) تطبيع للواجهة
+  // سبل ترجع الحقول الرئيسية (City/District/Street) باللغة المطلوبة،
+  // وحقول _L2 باللغة الأخرى. هنا نُعيد تسميتها للواجهة بأسماء واضحة (ar/en):
   cacheSuccess(res);
+  const mainIsArabic = (language === 'A');
+  const mainBlock = {
+    regionName: a.RegionName,
+    city:       a.City,
+    district:   a.District,
+    street:     a.Street,
+    address1:   a.Address1,
+    address2:   a.Address2
+  };
+  const l2Block = {
+    regionName: a.RegionName_L2,
+    city:       a.City_L2,
+    district:   a.District_L2,
+    street:     a.Street_L2
+  };
   return res.status(200).json({
     success: true,
     data: {
@@ -155,22 +172,8 @@ module.exports = async function handler(req, res) {
       buildingNumber:   a.BuildingNumber,
       postCode:         a.PostCode,
       additionalNumber: a.AdditionalNumber,
-      // الحقول حسب اللغة المطلوبة (الإنجليزية كقيمة افتراضية في سبل)
-      en: {
-        regionName: a.RegionName,
-        city:       a.City,
-        district:   a.District,
-        street:     a.Street,
-        address1:   a.Address1,
-        address2:   a.Address2
-      },
-      // L2 = اللغة الثانية (العربية إن كانت الأساسية إنجليزية)
-      ar: {
-        regionName: a.RegionName_L2,
-        city:       a.City_L2,
-        district:   a.District_L2,
-        street:     a.Street_L2
-      }
+      ar: mainIsArabic ? mainBlock : l2Block,
+      en: mainIsArabic ? l2Block  : mainBlock
     }
   });
 };
