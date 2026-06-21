@@ -168,6 +168,44 @@
       background: #fff; font-family: inherit;
     }
 
+    /* ===== تبويبات اختيار طريقة العنوان: كود / خريطة ===== */
+    .addr-tabs {
+      display: flex; gap: 6px; margin-bottom: 14px;
+      background: #f0f0f0; padding: 4px; border-radius: 10px;
+    }
+    .addr-tab {
+      flex: 1; text-align: center;
+      padding: 10px 8px; border: none; cursor: pointer;
+      background: transparent; border-radius: 8px;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      color: var(--muted); transition: all 0.15s ease;
+    }
+    .addr-tab.active {
+      background: #fff; color: var(--text);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+    }
+    .addr-panel { display: none; }
+    .addr-panel.active { display: block; }
+
+    /* ===== خريطة العنوان الوطني ===== */
+    #naMap {
+      width: 100%; height: 380px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: #eef1f4; overflow: hidden;
+    }
+    .map-hint {
+      font-size: 12px; color: var(--muted);
+      margin: 8px 0 4px;
+    }
+    .map-status {
+      font-size: 13px; padding: 10px 14px; border-radius: 8px;
+      margin-bottom: 10px; display: none;
+    }
+    .map-status.show { display: block; }
+    .map-status.load { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
+    .map-status.ok   { background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c; }
+    .map-status.err  { background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c; }
+
     /* نموذج سبل */
     .sebl-row {
       display: flex; gap: 8px; margin-bottom: 8px;
@@ -584,16 +622,32 @@
       <div class="card">
         <h2><span class="num">2</span> عنوان التوصيل</h2>
 
-        <!-- صف سبل -->
-        <div class="sebl-row">
-          <input type="text" id="seblInput"
-                 placeholder="مثال: RRRD3005"
-                 maxlength="8" />
-          <button id="seblBtn" type="button">الحصول على العنوان</button>
+        <!-- تبويبات: إدخال الكود أو الاختيار من الخريطة -->
+        <div class="addr-tabs">
+          <button type="button" class="addr-tab active" data-panel="code">📝 إدخال كود العنوان</button>
+          <button type="button" class="addr-tab" data-panel="map">🗺️ الاختيار من الخريطة</button>
         </div>
-        <p class="sebl-hint">
-          أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وستُعبّأ الحقول أدناه تلقائياً.
-        </p>
+
+        <!-- لوحة 1: إدخال كود العنوان الوطني -->
+        <div class="addr-panel active" id="panelCode">
+          <!-- صف سبل -->
+          <div class="sebl-row">
+            <input type="text" id="seblInput"
+                   placeholder="مثال: RRRD3005"
+                   maxlength="8" />
+            <button id="seblBtn" type="button">الحصول على العنوان</button>
+          </div>
+          <p class="sebl-hint">
+            أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وستُعبّأ الحقول أدناه تلقائياً.
+          </p>
+        </div>
+
+        <!-- لوحة 2: اختيار الموقع من خريطة العنوان الوطني -->
+        <div class="addr-panel" id="panelMap">
+          <div class="map-status" id="mapStatus"></div>
+          <p class="map-hint">انقر على موقعك في الخريطة وستُعبّأ حقول العنوان تلقائياً من العنوان الوطني.</p>
+          <div id="naMap"></div>
+        </div>
 
         <div class="sebl-result" id="seblResult"></div>
 
@@ -989,6 +1043,148 @@
       if (e.key === 'Enter') seblBtn.click();
     });
 
+    /* ============================================================
+       2-bis) خريطة العنوان الوطني — اختيار الموقع بالنقر
+       ------------------------------------------------------------
+       محرّك الخريطة (map-engine) من بوابة العنوان الوطني:
+       - نحمّله بشكل كسول (lazy) أول مرة يُفتح فيها تبويب الخريطة.
+       - المفتاح يُجلب وقت التشغيل من /api/maps-config.
+       - عند النقر على الخريطة: SANGC_OnIdentify يُرجع بيانات العنوان
+         (الحي/المدينة/الشارع/الإحداثيات) فنُعبّئ نفس الحقول.
+       *** نقطة الاستبدال في Magento: نفس المنطق، فقط استبدل عنصر
+           الخريطة وربط الحقول. ***
+       ============================================================ */
+    const mapStatus = document.getElementById('mapStatus');
+    let mapScriptLoaded = false;   // هل حُمّل سكربت المحرّك؟
+    let mapInitialized  = false;   // هل أُنشئت الخريطة؟
+    let mapLoading      = false;   // لمنع التحميل المزدوج
+    let mapsApiKey      = '';      // مفتاح الخريطة (يُجلب وقت التشغيل)
+
+    function setMapStatus(kind, html) {
+      mapStatus.className = 'map-status show ' + kind;
+      mapStatus.innerHTML = html;
+    }
+
+    // تبديل التبويبات
+    document.querySelectorAll('.addr-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.addr-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.addr-panel').forEach(p => p.classList.remove('active'));
+        tab.classList.add('active');
+        const panel = tab.dataset.panel;
+        document.getElementById(panel === 'map' ? 'panelMap' : 'panelCode').classList.add('active');
+        if (panel === 'map') ensureMapLoaded();
+      });
+    });
+
+    // جلب المفتاح ثم تحميل سكربت المحرّك (مرّة واحدة)
+    async function ensureMapLoaded() {
+      if (mapInitialized || mapLoading) return;
+      mapLoading = true;
+      setMapStatus('load', '⏳ جارٍ تحميل خريطة العنوان الوطني...');
+      try {
+        if (!mapScriptLoaded) {
+          const base = (window.SEBL_API_BASE || '');
+          const cfgRes = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
+          const cfg = await cfgRes.json().catch(() => ({}));
+          if (!cfgRes.ok || !cfg.success || !cfg.apiKey) {
+            throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة من الخادم.');
+          }
+          mapsApiKey = cfg.apiKey;
+          await loadMapEngine(cfg.apiKey);
+          mapScriptLoaded = true;
+        }
+        initNationalAddressMap();
+      } catch (e) {
+        setMapStatus('err', '❌ ' + (e.message || 'فشل تحميل الخريطة.') +
+          '<br><span style="font-size:12px">يمكنك بدلاً من ذلك إدخال كود العنوان من التبويب الآخر.</span>');
+      } finally {
+        mapLoading = false;
+      }
+    }
+
+    // حقن وسم <script> لمحرّك الخريطة مع المفتاح
+    function loadMapEngine(apiKey) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.type = 'text/javascript';
+        s.src = 'https://apina.address.gov.sa/NationalAddress/v3.1/maps/map-engine?api_key=' +
+                encodeURIComponent(apiKey);
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error('تعذّر تحميل محرّك الخريطة (تحقّق من المفتاح أو الاشتراك في خدمة الخرائط).'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // إنشاء الخريطة وربط حدث النقر
+    function initNationalAddressMap() {
+      if (typeof SANGC_LoadMapViewer !== 'function') {
+        setMapStatus('err', '❌ محرّك الخريطة لم يُحمّل بشكل صحيح.');
+        return;
+      }
+      // ربط معالج النقر قبل التحميل
+      window.SANGC_OnIdentify = onMapIdentify;
+
+      // (mapDiv, mapType, mapLanguage, proxyUrl, apiClientKey)
+      // المفتاح يُمرَّر أيضاً للمحرّك لاستدعاءات identify/reverse-geocode
+      SANGC_LoadMapViewer('naMap', 'default', 'A', '', mapsApiKey);
+      mapInitialized = true;
+      setMapStatus('ok', '✓ الخريطة جاهزة — انقر على موقعك لتعبئة العنوان.');
+
+      // لو عند العميل إحداثيات GPS سابقة، ضع علامة عليها
+      const sel = loadSelection();
+      if (sel && sel.lat != null && sel.lng != null && typeof SANGC_AddMarker === 'function') {
+        try {
+          // ترتيب SANGC_AddMarker: (id, lng, lat, label, symbol, size, options)
+          SANGC_AddMarker(1, sel.lng, sel.lat, 'موقعك الحالي', 'gpsMarker', 28, ['', null, null, null]);
+        } catch (e) { /* تجاهل — العلامة تحسين بصري فقط */ }
+      }
+    }
+
+    // تطبيع رد النقر إلى نفس شكل نتيجة سبل ثم تعبئة الحقول
+    function onMapIdentify(aResult) {
+      if (!aResult || aResult.length === 0) {
+        setMapStatus('err', '❌ لا يوجد عنوان وطني على هذه النقطة — جرّب نقطة أقرب لمبنى.');
+        return;
+      }
+      const a = aResult[0];
+      const lat = parseFloat(a.Latitude);
+      const lng = parseFloat(a.Longitude);
+      const city     = a.CityAr     || a.CityEn     || '';
+      const district = a.DistrictAr || a.DistrictEn || '';
+      const street   = a.StreetAr   || a.StreetEn   || '';
+
+      const normalized = {
+        ok: true,
+        code: '',                          // الاختيار من الخريطة لا يُرجع رمزاً وطنياً
+        city, district, street,
+        building: a.BuildingNumber || '',
+        postCode: a.ZipCode || '',
+        additionalNumber: a.AdditionalNumber || '',
+        lat, lng,
+        address: [city, district && ('حي ' + district), street && ('شارع ' + street),
+                  a.BuildingNumber && ('مبنى ' + a.BuildingNumber)].filter(Boolean).join('، ')
+      };
+
+      resolvedAddress = normalized;        // يقرأها الملخّص النهائي (نفس متغيّر سبل)
+      populateAddressFields(normalized);   // تعبئة + وميض الحقول
+
+      // علامة على الموقع المختار
+      if (typeof SANGC_AddMarker === 'function' && !isNaN(lat) && !isNaN(lng)) {
+        try {
+          SANGC_AddMarker(2, lng, lat, 'موقع التسليم', 'pickMarker', 32, ['', null, null, null]);
+        } catch (e) { /* تجاهل */ }
+      }
+
+      // فحص تطابق الإحداثيات مع GPS (نفس منطق سبل)
+      if (!isNaN(lat) && !isNaN(lng)) {
+        runLocationMatchCheck(lat, lng);
+        setMapStatus('ok', '✓ تم اختيار: <strong>' + (normalized.address || 'الموقع المحدّد') +
+          '</strong> — تمت تعبئة الحقول، يمكنك تعديلها قبل التأكيد.');
+      }
+      updateFinalSummary();
+    }
+
     // ====== 3) الملخّص النهائي + زر التأكيد ======
     const finalSummary = document.getElementById('finalSummary');
 
@@ -1115,7 +1311,7 @@
           <div class="step-label">STEP 1</div>
           <div class="step-title">User input → national address code</div>
           <div class="step-content">
-            <span class="var">shortaddress</span> = <span class="val">"${code || result.code}"</span><br>
+            <span class="var">shortaddress</span> = <span class="val">"${code || result.code || '(اختيار من الخريطة)'}"</span><br>
             Pattern check: <span class="val">/^[A-Z]{4}[0-9]{4}$/.test()</span> → <span class="val">true</span>
           </div>
         </div>
