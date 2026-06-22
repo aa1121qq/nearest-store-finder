@@ -193,6 +193,12 @@
       border: 1px solid var(--border); border-radius: 10px;
       background: #eef1f4; overflow: hidden;
     }
+    .map-search {
+      width: 100%; padding: 11px 14px; margin-bottom: 8px;
+      border: 1px solid var(--border); border-radius: 8px;
+      font-size: 14px; font-family: inherit;
+    }
+    .map-search:focus { outline: none; border-color: var(--red); }
     .map-hint {
       font-size: 12px; color: var(--muted);
       margin: 8px 0 4px;
@@ -642,10 +648,12 @@
           </p>
         </div>
 
-        <!-- لوحة 2: اختيار الموقع من خريطة العنوان الوطني -->
+        <!-- لوحة 2: تحديد الموقع من خريطة Google -->
         <div class="addr-panel" id="panelMap">
           <div class="map-status" id="mapStatus"></div>
-          <p class="map-hint">انقر على موقعك في الخريطة وستُعبّأ حقول العنوان تلقائياً من العنوان الوطني.</p>
+          <input type="text" id="mapSearch" class="map-search"
+                 placeholder="🔍 ابحث عن عنوان أو حي للقفز إليه..." />
+          <p class="map-hint">اسحب الدبّوس أو انقر على موقعك بالضبط — ستُعبّأ حقول العنوان تلقائياً.</p>
           <div id="naMap"></div>
         </div>
 
@@ -1044,21 +1052,21 @@
     });
 
     /* ============================================================
-       2-bis) خريطة العنوان الوطني — اختيار الموقع بالنقر
+       2-bis) خريطة Google Maps — تحديد الموقع بدبّوس قابل للسحب
        ------------------------------------------------------------
-       محرّك الخريطة (map-engine) من بوابة العنوان الوطني:
-       - نحمّله بشكل كسول (lazy) أول مرة يُفتح فيها تبويب الخريطة.
+       - نحمّل Google Maps JS API بشكل كسول (lazy) أول فتح للتبويب.
        - المفتاح يُجلب وقت التشغيل من /api/maps-config.
-       - عند النقر على الخريطة: SANGC_OnIdentify يُرجع بيانات العنوان
-         (الحي/المدينة/الشارع/الإحداثيات) فنُعبّئ نفس الحقول.
+       - دبّوس قابل للسحب + النقر على الخريطة لضبط الموقع بدقّة.
+       - مربّع بحث (Places Autocomplete) للقفز لأي عنوان.
+       - عند تثبيت الموقع: reverse-geocode لجلب الحي/المدينة/الشارع،
+         تعبئة نفس الحقول، وتشغيل فحص تطابق الموقع مع GPS.
        *** نقطة الاستبدال في Magento: نفس المنطق، فقط استبدل عنصر
            الخريطة وربط الحقول. ***
        ============================================================ */
     const mapStatus = document.getElementById('mapStatus');
-    let mapScriptLoaded = false;   // هل حُمّل سكربت المحرّك؟
-    let mapInitialized  = false;   // هل أُنشئت الخريطة؟
-    let mapLoading      = false;   // لمنع التحميل المزدوج
-    let mapsApiKey      = '';      // مفتاح الخريطة (يُجلب وقت التشغيل)
+    let mapInitialized = false;   // هل أُنشئت الخريطة؟
+    let mapLoading     = false;   // لمنع التحميل المزدوج
+    let gMap = null, gMarker = null, gGeocoder = null;
 
     function setMapStatus(kind, html) {
       mapStatus.className = 'map-status show ' + kind;
@@ -1077,24 +1085,20 @@
       });
     });
 
-    // جلب المفتاح ثم تحميل سكربت المحرّك (مرّة واحدة)
+    // جلب المفتاح ثم تحميل سكربت Google Maps (مرّة واحدة)
     async function ensureMapLoaded() {
       if (mapInitialized || mapLoading) return;
       mapLoading = true;
-      setMapStatus('load', '⏳ جارٍ تحميل خريطة العنوان الوطني...');
+      setMapStatus('load', '⏳ جارٍ تحميل خريطة Google...');
       try {
-        if (!mapScriptLoaded) {
-          const base = (window.SEBL_API_BASE || '');
-          const cfgRes = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
-          const cfg = await cfgRes.json().catch(() => ({}));
-          if (!cfgRes.ok || !cfg.success || !cfg.apiKey) {
-            throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة من الخادم.');
-          }
-          mapsApiKey = cfg.apiKey;
-          await loadMapEngine(cfg.apiKey);
-          mapScriptLoaded = true;
+        const base = (window.SEBL_API_BASE || '');
+        const cfgRes = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
+        const cfg = await cfgRes.json().catch(() => ({}));
+        if (!cfgRes.ok || !cfg.success || !cfg.apiKey) {
+          throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة من الخادم.');
         }
-        initNationalAddressMap();
+        await loadGoogleMaps(cfg.apiKey);
+        initGoogleMap();
       } catch (e) {
         setMapStatus('err', '❌ ' + (e.message || 'فشل تحميل الخريطة.') +
           '<br><span style="font-size:12px">يمكنك بدلاً من ذلك إدخال كود العنوان من التبويب الآخر.</span>');
@@ -1103,86 +1107,131 @@
       }
     }
 
-    // حقن وسم <script> لمحرّك الخريطة مع المفتاح
-    function loadMapEngine(apiKey) {
+    // حقن وسم <script> لـ Google Maps مع مكتبة Places
+    function loadGoogleMaps(apiKey) {
       return new Promise((resolve, reject) => {
+        if (window.google && window.google.maps) return resolve();
+        window.__gmapsReady = () => resolve();
         const s = document.createElement('script');
-        s.type = 'text/javascript';
-        s.src = 'https://apina.address.gov.sa/NationalAddress/v3.1/maps/map-engine?api_key=' +
-                encodeURIComponent(apiKey);
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error('تعذّر تحميل محرّك الخريطة (تحقّق من المفتاح أو الاشتراك في خدمة الخرائط).'));
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) +
+                '&libraries=places&language=ar&region=SA&callback=__gmapsReady';
+        s.async = true;
+        s.defer = true;
+        s.onerror = () => reject(new Error('تعذّر تحميل خريطة Google (تحقّق من المفتاح أو تفعيل Maps JavaScript API).'));
         document.head.appendChild(s);
       });
     }
 
-    // إنشاء الخريطة وربط حدث النقر
-    function initNationalAddressMap() {
-      if (typeof SANGC_LoadMapViewer !== 'function') {
-        setMapStatus('err', '❌ محرّك الخريطة لم يُحمّل بشكل صحيح.');
+    // إنشاء الخريطة + الدبّوس + مربّع البحث
+    function initGoogleMap() {
+      if (!(window.google && window.google.maps)) {
+        setMapStatus('err', '❌ خريطة Google لم تُحمّل بشكل صحيح.');
         return;
       }
-      // ربط معالج النقر قبل التحميل
-      window.SANGC_OnIdentify = onMapIdentify;
-
-      // (mapDiv, mapType, mapLanguage, proxyUrl, apiClientKey)
-      // المفتاح يُمرَّر أيضاً للمحرّك لاستدعاءات identify/reverse-geocode
-      SANGC_LoadMapViewer('naMap', 'default', 'A', '', mapsApiKey);
-      mapInitialized = true;
-      setMapStatus('ok', '✓ الخريطة جاهزة — انقر على موقعك لتعبئة العنوان.');
-
-      // لو عند العميل إحداثيات GPS سابقة، ضع علامة عليها
+      // المركز الابتدائي: GPS العميل إن وُجد، وإلا الرياض
       const sel = loadSelection();
-      if (sel && sel.lat != null && sel.lng != null && typeof SANGC_AddMarker === 'function') {
-        try {
-          // ترتيب SANGC_AddMarker: (id, lng, lat, label, symbol, size, options)
-          SANGC_AddMarker(1, sel.lng, sel.lat, 'موقعك الحالي', 'gpsMarker', 28, ['', null, null, null]);
-        } catch (e) { /* تجاهل — العلامة تحسين بصري فقط */ }
+      const start = (sel && sel.lat != null && sel.lng != null)
+        ? { lat: sel.lat, lng: sel.lng }
+        : { lat: 24.7136, lng: 46.6753 }; // الرياض
+
+      gGeocoder = new google.maps.Geocoder();
+      gMap = new google.maps.Map(document.getElementById('naMap'), {
+        center: start,
+        zoom: (sel && sel.lat != null) ? 16 : 11,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: true,
+        gestureHandling: 'greedy'
+      });
+
+      gMarker = new google.maps.Marker({
+        position: start,
+        map: gMap,
+        draggable: true,
+        title: 'اسحبني لضبط موقع التسليم بدقّة'
+      });
+
+      // النقر على الخريطة ينقل الدبّوس
+      gMap.addListener('click', (e) => {
+        gMarker.setPosition(e.latLng);
+        handlePinMoved(e.latLng);
+      });
+      // سحب الدبّوس
+      gMarker.addListener('dragend', (e) => handlePinMoved(e.latLng));
+
+      // مربّع البحث (Places Autocomplete)
+      const searchEl = document.getElementById('mapSearch');
+      if (searchEl && google.maps.places) {
+        const ac = new google.maps.places.Autocomplete(searchEl, {
+          componentRestrictions: { country: 'sa' },
+          fields: ['geometry', 'name']
+        });
+        ac.addListener('place_changed', () => {
+          const place = ac.getPlace();
+          if (place.geometry && place.geometry.location) {
+            const loc = place.geometry.location;
+            gMap.panTo(loc);
+            gMap.setZoom(17);
+            gMarker.setPosition(loc);
+            handlePinMoved(loc);
+          }
+        });
       }
+
+      mapInitialized = true;
+      setMapStatus('ok', '✓ الخريطة جاهزة — اسحب الدبّوس أو انقر على موقعك بالضبط.');
     }
 
-    // تطبيع رد النقر إلى نفس شكل نتيجة سبل ثم تعبئة الحقول
-    function onMapIdentify(aResult) {
-      if (!aResult || aResult.length === 0) {
-        setMapStatus('err', '❌ لا يوجد عنوان وطني على هذه النقطة — جرّب نقطة أقرب لمبنى.');
-        return;
-      }
-      const a = aResult[0];
-      const lat = parseFloat(a.Latitude);
-      const lng = parseFloat(a.Longitude);
-      const city     = a.CityAr     || a.CityEn     || '';
-      const district = a.DistrictAr || a.DistrictEn || '';
-      const street   = a.StreetAr   || a.StreetEn   || '';
+    // عند تحريك الدبّوس: reverse-geocode ثم تعبئة الحقول وفحص التطابق
+    function handlePinMoved(latLng) {
+      const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
+      const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
+      setMapStatus('load', '⏳ جارٍ قراءة العنوان من الموقع...');
 
-      const normalized = {
-        ok: true,
-        code: '',                          // الاختيار من الخريطة لا يُرجع رمزاً وطنياً
-        city, district, street,
-        building: a.BuildingNumber || '',
-        postCode: a.ZipCode || '',
-        additionalNumber: a.AdditionalNumber || '',
-        lat, lng,
-        address: [city, district && ('حي ' + district), street && ('شارع ' + street),
-                  a.BuildingNumber && ('مبنى ' + a.BuildingNumber)].filter(Boolean).join('، ')
-      };
+      gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        let comp = {};
+        if (status === 'OK' && results && results[0]) {
+          comp = parseGoogleComponents(results[0]);
+        }
+        const city     = comp.city || '';
+        const district = comp.district || '';
+        const street   = comp.street || '';
 
-      resolvedAddress = normalized;        // يقرأها الملخّص النهائي (نفس متغيّر سبل)
-      populateAddressFields(normalized);   // تعبئة + وميض الحقول
+        const normalized = {
+          ok: true,
+          code: '',                        // الاختيار من الخريطة لا يُرجع رمزاً وطنياً
+          city, district, street,
+          building: comp.building || '',
+          postCode: comp.postCode || '',
+          additionalNumber: '',
+          lat, lng,
+          address: comp.formatted ||
+            [city, district && ('حي ' + district), street && ('شارع ' + street)].filter(Boolean).join('، ')
+        };
 
-      // علامة على الموقع المختار
-      if (typeof SANGC_AddMarker === 'function' && !isNaN(lat) && !isNaN(lng)) {
-        try {
-          SANGC_AddMarker(2, lng, lat, 'موقع التسليم', 'pickMarker', 32, ['', null, null, null]);
-        } catch (e) { /* تجاهل */ }
-      }
-
-      // فحص تطابق الإحداثيات مع GPS (نفس منطق سبل)
-      if (!isNaN(lat) && !isNaN(lng)) {
-        runLocationMatchCheck(lat, lng);
-        setMapStatus('ok', '✓ تم اختيار: <strong>' + (normalized.address || 'الموقع المحدّد') +
+        resolvedAddress = normalized;      // يقرأها الملخّص النهائي (نفس متغيّر سبل)
+        populateAddressFields(normalized); // تعبئة + وميض الحقول
+        runLocationMatchCheck(lat, lng);   // فحص التطابق مع GPS
+        setMapStatus('ok', '✓ الموقع: <strong>' + (normalized.address || (lat.toFixed(6) + ', ' + lng.toFixed(6))) +
           '</strong> — تمت تعبئة الحقول، يمكنك تعديلها قبل التأكيد.');
-      }
-      updateFinalSummary();
+        updateFinalSummary();
+      });
+    }
+
+    // استخراج المدينة/الحي/الشارع من مكوّنات عنوان Google
+    function parseGoogleComponents(result) {
+      const out = { formatted: result.formatted_address || '' };
+      (result.address_components || []).forEach(c => {
+        const t = c.types;
+        if (t.includes('street_number')) out.building = c.long_name;
+        else if (t.includes('route')) out.street = c.long_name;
+        else if (t.includes('neighborhood') || t.includes('sublocality') || t.includes('sublocality_level_1'))
+          out.district = out.district || c.long_name;
+        else if (t.includes('locality')) out.city = c.long_name;
+        else if (t.includes('administrative_area_level_2') && !out.city) out.city = c.long_name;
+        else if (t.includes('postal_code')) out.postCode = c.long_name;
+      });
+      return out;
     }
 
     // ====== 3) الملخّص النهائي + زر التأكيد ======
