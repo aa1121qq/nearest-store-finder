@@ -363,6 +363,40 @@
       return out;
     }
 
+    // إرجاع نتيجة geocode لنقطة كـ Promise
+    function geocodeLatLng(lat, lng) {
+      return new Promise((resolve) => {
+        gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          resolve((status === 'OK' && results && results[0]) ? results[0] : null);
+        });
+      });
+    }
+    function extractCode(result) {
+      const m = ((result && result.formatted_address) || '').match(/\b([A-Z]{4}\d{4})\b/);
+      return m ? m[1] : null;
+    }
+
+    /* البحث عن أقرب رمز وطني حول النقطة (لما النقطة نفسها بلا رمز)
+       نفحص حلقات صغيرة (أمتار) ونتوقّف عند أول رمز نجده = الأقرب.
+       يُستهلك عدة طلبات Google، لذا نشغّله عند "تأكيد الموقع" فقط. */
+    async function probeNearbyCode(lat, lng) {
+      const mPerDegLat = 111320;
+      const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180) || 111320;
+      const radii  = [20, 40, 70];                 // أمتار
+      const angles = [0, 90, 180, 270];            // الجهات الأربع
+      for (const r of radii) {
+        for (const a of angles) {
+          const rad = a * Math.PI / 180;
+          const dLat = (r * Math.cos(rad)) / mPerDegLat;
+          const dLng = (r * Math.sin(rad)) / mPerDegLng;
+          const res = await geocodeLatLng(lat + dLat, lng + dLng);
+          const code = extractCode(res);
+          if (code) return { code, offset: r };
+        }
+      }
+      return null;
+    }
+
     function renderPicked() {
       // السطر الأول: الرمز الوطني - المدينة
       const l1 = [picked.code, picked.city].filter(Boolean).join(' - ') || picked.formatted || 'موقع محدد';
@@ -399,27 +433,48 @@
     });
 
     // تأكيد الموقع → املأ النموذج
-    confirmBtn.addEventListener('click', () => {
+    confirmBtn.addEventListener('click', async () => {
       if (!picked) return;
-      setVal('naCode', picked.code || '');
       setVal('city', picked.city || '');
       setVal('district', picked.district || '');
       setVal('addressLine', picked.formatted || '');
-
-      // تنبيه حالة الرمز الوطني
       const hint = document.getElementById('naCodeHint');
+
       if (picked.code) {
+        // الرمز متوفّر مباشرة من النقطة
+        setVal('naCode', picked.code);
         hint.className = 'field-hint ok';
         hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
-      } else {
-        hint.className = 'field-hint warn';
-        hint.textContent = '⚠️ لم يوفّر Google رمزاً وطنياً لهذا الموقع — يمكنك إدخاله يدوياً.';
+        finishConfirm();
+        return;
       }
 
+      // لا رمز في النقطة → ابحث عن أقرب رمز وطني حولها
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ البحث عن أقرب رمز وطني...';
+      hint.className = 'field-hint warn';
+      hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
+
+      const found = await probeNearbyCode(picked.lat, picked.lng);
+      confirmBtn.disabled = false;
+
+      if (found) {
+        setVal('naCode', found.code);
+        hint.className = 'field-hint ok';
+        hint.textContent = '✓ أقرب رمز وطني: ' + found.code + ' (يبعد ~' + found.offset + ' متر).';
+      } else {
+        setVal('naCode', '');
+        hint.className = 'field-hint warn';
+        hint.textContent = '⚠️ لم يُعثر على رمز وطني قريب — أدخله يدوياً.';
+      }
+      finishConfirm();
+    });
+
+    function finishConfirm() {
       confirmBtn.textContent = '✓ تم تأكيد الموقع';
       setTimeout(() => { confirmBtn.textContent = 'تأكيد الموقع'; }, 1800);
       document.querySelector('.form-area').scrollIntoView({ behavior: 'smooth' });
-    });
+    }
 
     function setVal(id, v) {
       const el = document.getElementById(id);
