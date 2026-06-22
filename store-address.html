@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>إضافة عنوان جديد | محاكي صفحة المتجر</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --label: #9c6644;       /* لون عناوين الحقول (بنّي محمر كالمتجر) */
+      --border: #d9d9d9;
+      --dark: #111;
+      --gray-btn: #6c6c6c;
+      --text: #222;
+      --muted: #888;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, "Cairo", Arial, sans-serif;
+      background: #f4f4f4; color: var(--text); line-height: 1.6;
+      padding: 24px 12px;
+    }
+    .wrap {
+      max-width: 760px; margin: 0 auto;
+      background: #fff; border: 1px solid #ececec; border-radius: 10px;
+      padding: 22px; box-shadow: 0 2px 14px rgba(0,0,0,0.05);
+    }
+    .page-title {
+      font-size: 18px; font-weight: 800; margin-bottom: 18px;
+      padding-bottom: 12px; border-bottom: 1px solid #eee;
+    }
+
+    /* ===== الخريطة في الأعلى ===== */
+    .map-block { margin-bottom: 22px; }
+    .map-wrap { position: relative; }
+    #gmap {
+      width: 100%; height: 320px;
+      border: 1px solid var(--border); border-radius: 8px;
+      background: #eef1f4; overflow: hidden;
+    }
+    /* زر دائري عائم (+) للحصول على العنوان */
+    .fab-get-address {
+      position: absolute; bottom: 16px; left: 16px; z-index: 5;
+      width: 58px; height: 58px; border-radius: 50%;
+      background: #1a73e8; color: #fff; border: 3px solid #fff;
+      font-size: 34px; font-weight: 700; line-height: 1; cursor: pointer;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.35);
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s ease;
+    }
+    .fab-get-address:hover { background: #1666cf; transform: scale(1.06); }
+    .fab-get-address:active { transform: scale(0.96); }
+    .fab-get-address:disabled { background: #9bbef0; cursor: wait; }
+    .fab-label {
+      position: absolute; bottom: 26px; left: 84px; z-index: 5;
+      background: rgba(17,17,17,0.82); color: #fff;
+      font-size: 12px; font-weight: 700; padding: 5px 10px; border-radius: 6px;
+      pointer-events: none; white-space: nowrap;
+    }
+    .fab-label::after {
+      content: ''; position: absolute; top: 50%; right: -5px; transform: translateY(-50%);
+      border: 5px solid transparent; border-right-color: rgba(17,17,17,0.82);
+    }
+    .map-actions {
+      display: flex; gap: 10px; margin-top: 10px; flex-wrap: wrap;
+    }
+    .map-actions button {
+      flex: 1; min-width: 200px;
+      padding: 13px 16px; border-radius: 8px;
+      font-family: inherit; font-size: 15px; font-weight: 700;
+      cursor: pointer; border: none; transition: all 0.15s ease;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    }
+    /* زر "احصل على العنوان" — أساسي واضح أنه قابل للضغط */
+    .btn-get-address {
+      background: #1a73e8; color: #fff;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.35);
+    }
+    .btn-get-address:hover { background: #1666cf; box-shadow: 0 4px 12px rgba(26,115,232,0.45); }
+    .btn-get-address:active { transform: translateY(1px); }
+    .btn-get-address:disabled { background: #9bbef0; cursor: wait; box-shadow: none; }
+    /* زر "احصل على موقعي الحالي" */
+    .btn-locate {
+      background: #fff; color: var(--text); border: 1px solid var(--border);
+    }
+    .btn-locate:hover { border-color: #1a73e8; color: #1a73e8; }
+    .btn-locate:disabled { opacity: 0.6; cursor: wait; }
+
+    .map-status {
+      font-size: 13px; padding: 9px 13px; border-radius: 8px;
+      margin-bottom: 10px; display: none;
+    }
+    .map-status.show { display: block; }
+    .map-status.load { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
+    .map-status.ok   { background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c; }
+    .map-status.err  { background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c; }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid currentColor; border-top-color: transparent;
+      border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes flashFill { 0% { background: #fff9c4; } 100% { background: #fff; } }
+    .auto-filled { animation: flashFill 1.2s ease-out; }
+
+    /* ===== نموذج العنوان (نفس تصميم المتجر) ===== */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+    .field { display: flex; flex-direction: column; }
+    .field.full { grid-column: 1 / -1; }
+    .field label {
+      font-size: 13px; color: var(--label); margin-bottom: 6px; font-weight: 600;
+    }
+    .field input, .field textarea, .field select {
+      width: 100%; padding: 11px 12px;
+      border: 1px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 14px; background: #fff; color: var(--text);
+    }
+    .field input:focus, .field textarea:focus, .field select:focus {
+      outline: none; border-color: #1a73e8;
+    }
+    .field textarea { min-height: 80px; resize: vertical; }
+    /* خانة المدينة/الحي بمظهر القائمة المنسدلة */
+    .select-like {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat; background-position: left 12px center;
+    }
+
+    /* صف الجوال: حقل + زر تأكيد + الدولة */
+    .phone-row { display: flex; gap: 8px; }
+    .phone-row input { flex: 1; }
+    .phone-row .btn-confirm {
+      background: var(--dark); color: #fff; border: none; border-radius: 6px;
+      padding: 0 16px; font-family: inherit; font-weight: 700; cursor: pointer; font-size: 13px;
+    }
+    .phone-row .country {
+      display: flex; align-items: center; gap: 6px; white-space: nowrap;
+      border: 1px solid var(--border); border-radius: 6px; padding: 0 12px;
+      font-size: 13px; color: var(--text); background: #fff;
+    }
+    .flag { background: #1a7f37; color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 3px; }
+
+    .btn-submit {
+      width: 100%; margin-top: 22px; padding: 15px;
+      background: var(--dark); color: #fff; border: none; border-radius: 8px;
+      font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;
+    }
+    .btn-submit:hover { background: #000; }
+
+    .note {
+      font-size: 12px; color: var(--muted); margin-top: 4px;
+    }
+    @media (max-width: 600px) {
+      .grid { grid-template-columns: 1fr; }
+      .map-actions button { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="page-title">إضافة عنوان جديد</div>
+
+    <!-- ===== الخريطة في الأعلى ===== -->
+    <div class="map-block">
+      <div class="map-status" id="mapStatus"></div>
+      <div class="map-wrap">
+        <div id="gmap"></div>
+        <!-- زر دائري (+) للحصول على العنوان -->
+        <button type="button" class="fab-get-address" id="getAddressBtn"
+                title="احصل على العنوان" aria-label="احصل على العنوان">+</button>
+        <span class="fab-label">احصل على العنوان</span>
+      </div>
+      <div class="map-actions">
+        <button type="button" class="btn-locate" id="locateBtn">📍 احصل على موقعي الحالي</button>
+      </div>
+      <p class="note">حرّك الدبّوس على موقعك ثم اضغط زر <strong>(+)</strong> «احصل على العنوان» لتعبئة الحقول تلقائياً.</p>
+    </div>
+
+    <!-- ===== نموذج العنوان ===== -->
+    <form id="addressForm" onsubmit="return false;">
+      <div class="grid">
+        <!-- رمز العنوان الوطني (بدون زر ملاصق) -->
+        <div class="field full">
+          <label for="naCode">رمز العنوان الوطني</label>
+          <input type="text" id="naCode" placeholder="مثال: RBMA3761" maxlength="8" />
+        </div>
+
+        <div class="field">
+          <label for="firstName">الاسم الأول</label>
+          <input type="text" id="firstName" placeholder="abdulaziz" />
+        </div>
+        <div class="field">
+          <label for="lastName">اللقب</label>
+          <input type="text" id="lastName" placeholder="—" />
+        </div>
+
+        <div class="field full">
+          <label for="email">عنوان البريد الإلكتروني</label>
+          <input type="email" id="email" placeholder="example@gmail.com" />
+        </div>
+
+        <div class="field full">
+          <label for="phone">الجوال</label>
+          <div class="phone-row">
+            <span class="country"><span class="flag">SA</span> السعودية</span>
+            <input type="tel" id="phone" placeholder="05XXXXXXXX" />
+            <button type="button" class="btn-confirm">تأكيد</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="city">اختر المدينة</label>
+          <input type="text" id="city" class="select-like" placeholder="المدينة المنورة" />
+        </div>
+        <div class="field">
+          <label for="district">الحي</label>
+          <input type="text" id="district" class="select-like" placeholder="حي مذينب" />
+        </div>
+
+        <div class="field full">
+          <label for="addressLine">العنوان</label>
+          <textarea id="addressLine" placeholder="سيُعبّأ تلقائياً من الخريطة، أو اكتبه يدوياً."></textarea>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit">إضافة عنوان جديد</button>
+    </form>
+  </div>
+
+  <script>
+    /* ============================================================
+       محاكي صفحة عنوان المتجر — خريطة Google + احصل على العنوان
+       ------------------------------------------------------------
+       - الخريطة في الأعلى، دبّوس قابل للسحب + زر الموقع الحالي.
+       - "احصل على العنوان" يقرأ العنوان من موضع الدبّوس (reverse
+         geocode) ويملأ: الرمز الوطني (إن وُجد) + المدينة + الحي +
+         العنوان الكامل. القراءة عند الضغط فقط (أوفر في التكلفة).
+       ============================================================ */
+    const mapStatus = document.getElementById('mapStatus');
+    let gMap = null, gMarker = null, gGeocoder = null;
+    let mapInitialized = false, mapLoading = false;
+
+    function setStatus(kind, html) {
+      mapStatus.className = 'map-status show ' + kind;
+      mapStatus.innerHTML = html;
+    }
+
+    // تحميل Google Maps (المفتاح من /api/maps-config)
+    async function ensureMap() {
+      if (mapInitialized || mapLoading) return;
+      mapLoading = true;
+      setStatus('load', '⏳ جارٍ تحميل الخريطة...');
+      try {
+        const base = (window.SEBL_API_BASE || '');
+        const res = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
+        const cfg = await res.json().catch(() => ({}));
+        if (!res.ok || !cfg.success || !cfg.apiKey) throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة.');
+        await loadGoogle(cfg.apiKey);
+        initMap();
+      } catch (e) {
+        setStatus('err', '❌ ' + (e.message || 'فشل تحميل الخريطة.'));
+      } finally { mapLoading = false; }
+    }
+
+    function loadGoogle(apiKey) {
+      return new Promise((resolve, reject) => {
+        if (window.google && window.google.maps) return resolve();
+        window.__gmapsReady = () => resolve();
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) +
+                '&libraries=places&language=ar&region=SA&callback=__gmapsReady';
+        s.async = true; s.defer = true;
+        s.onerror = () => reject(new Error('تعذّر تحميل خريطة Google (تحقّق من المفتاح/تفعيل Maps JavaScript API).'));
+        document.head.appendChild(s);
+      });
+    }
+
+    function initMap() {
+      const start = { lat: 24.4709, lng: 39.6121 }; // المدينة المنورة افتراضياً
+      gGeocoder = new google.maps.Geocoder();
+      gMap = new google.maps.Map(document.getElementById('gmap'), {
+        center: start, zoom: 12,
+        mapTypeControl: false, streetViewControl: false, gestureHandling: 'greedy'
+      });
+      gMarker = new google.maps.Marker({
+        position: start, map: gMap, draggable: true, title: 'اسحبني لموقعك'
+      });
+      gMap.addListener('click', (e) => gMarker.setPosition(e.latLng));
+      mapInitialized = true;
+      setStatus('ok', '✓ الخريطة جاهزة — حرّك الدبّوس ثم اضغط «احصل على العنوان».');
+    }
+
+    // قراءة العنوان من موضع الدبّوس الحالي (عند الضغط فقط)
+    function readAddressFromPin() {
+      if (!gMarker) { setStatus('err', '❌ الخريطة لم تُحمّل بعد.'); return; }
+      const pos = gMarker.getPosition();
+      const lat = pos.lat(), lng = pos.lng();
+      const btn = document.getElementById('getAddressBtn');
+      btn.disabled = true;
+      setStatus('load', '<span class="spinner"></span> جارٍ قراءة العنوان...');
+      gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        btn.disabled = false;
+        if (status !== 'OK' || !results || !results[0]) {
+          setStatus('err', '❌ تعذّر قراءة العنوان لهذا الموقع — جرّب نقطة أقرب لمبنى.');
+          return;
+        }
+        fillFromGoogle(results[0]);
+      });
+    }
+
+    function fillFromGoogle(result) {
+      const out = { formatted: result.formatted_address || '' };
+      const m = (result.formatted_address || '').match(/\b([A-Z]{4}\d{4})\b/);
+      if (m) out.code = m[1];
+      (result.address_components || []).forEach(c => {
+        const t = c.types;
+        if (t.includes('neighborhood') || t.includes('sublocality') || t.includes('sublocality_level_1'))
+          out.district = out.district || c.long_name;
+        else if (t.includes('locality')) out.city = c.long_name;
+        else if (t.includes('administrative_area_level_2') && !out.city) out.city = c.long_name;
+      });
+
+      setVal('naCode', out.code || '');
+      setVal('city', out.city || '');
+      setVal('district', out.district || '');
+      setVal('addressLine', out.formatted || '');
+
+      const parts = [];
+      if (out.code) parts.push('الرمز: ' + out.code);
+      if (out.district) parts.push(out.district);
+      if (out.city) parts.push(out.city);
+      setStatus('ok', '✓ ' + (parts.join('، ') || 'تمت قراءة الموقع') +
+        ' — تمت تعبئة الحقول، يمكنك تعديلها.');
+    }
+
+    function setVal(id, v) {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.value = v;
+      el.classList.remove('auto-filled'); void el.offsetWidth; el.classList.add('auto-filled');
+    }
+
+    // زر الموقع الحالي
+    document.getElementById('locateBtn').addEventListener('click', async () => {
+      await ensureMap();
+      if (!navigator.geolocation) { setStatus('err', '❌ المتصفّح لا يدعم تحديد الموقع.'); return; }
+      const btn = document.getElementById('locateBtn');
+      btn.disabled = true;
+      setStatus('load', '<span class="spinner"></span> جارٍ طلب موقعك الحالي...');
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          btn.disabled = false;
+          const loc = { lat: p.coords.latitude, lng: p.coords.longitude };
+          gMap.panTo(loc); gMap.setZoom(17); gMarker.setPosition(loc);
+          setStatus('ok', '✓ تم تحديد موقعك — اضغط «احصل على العنوان» لتعبئة الحقول.');
+        },
+        (err) => {
+          btn.disabled = false;
+          setStatus('err', '❌ ' + (err.code === err.PERMISSION_DENIED
+            ? 'رفضت إذن الموقع. فعّله من إعدادات المتصفّح.'
+            : 'تعذّر تحديد موقعك — حرّك الدبّوس يدوياً.'));
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+
+    // زر احصل على العنوان
+    document.getElementById('getAddressBtn').addEventListener('click', async () => {
+      await ensureMap();
+      readAddressFromPin();
+    });
+
+    // حمّل الخريطة فور فتح الصفحة
+    ensureMap();
+  </script>
+</body>
+</html>
