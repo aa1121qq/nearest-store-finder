@@ -685,6 +685,11 @@
 
         <!-- حقول العنوان (تُعبّأ تلقائياً من سبل) -->
         <div class="form-grid">
+          <div class="form-group full">
+            <label><span class="field-source-tag empty" data-tag="nationalCode">يدوي</span> رمز العنوان الوطني</label>
+            <input type="text" id="addrNationalCode" class="coords-input"
+                   placeholder="مثال: RBMA3761 (4 أحرف + 4 أرقام)" maxlength="8" />
+          </div>
           <div class="form-group">
             <label><span class="field-source-tag empty" data-tag="city">يدوي</span> المدينة</label>
             <input type="text" id="addrCity" placeholder="مثال: الرياض" />
@@ -874,6 +879,7 @@
 
     // خريطة: مفتاح الحقل في الرد ← element id + tag
     const ADDRESS_FIELDS = [
+      { tag: 'nationalCode', id: 'addrNationalCode', getValue: r => r.code || '' },
       { tag: 'city',     id: 'addrCity',     getValue: r => r.city },
       { tag: 'district', id: 'addrDistrict', getValue: r => r.district },
       { tag: 'street',   id: 'addrStreet',   getValue: r => r.street },
@@ -1243,7 +1249,7 @@
 
         const normalized = {
           ok: true,
-          code: '',                        // الاختيار من الخريطة لا يُرجع رمزاً وطنياً
+          code: comp.code || '',           // الرمز الوطني إن وُجد ضمن عنوان Google
           city, district, street,
           building: comp.building || '',
           postCode: comp.postCode || '',
@@ -1265,6 +1271,9 @@
     // استخراج المدينة/الحي/الشارع من مكوّنات عنوان Google
     function parseGoogleComponents(result) {
       const out = { formatted: result.formatted_address || '' };
+      // الرمز الوطني المختصر (4 أحرف + 4 أرقام) يظهر غالباً ضمن العنوان الكامل
+      const m = (result.formatted_address || '').match(/\b([A-Z]{4}\d{4})\b/);
+      if (m) out.code = m[1];
       (result.address_components || []).forEach(c => {
         const t = c.types;
         if (t.includes('street_number')) out.building = c.long_name;
@@ -1313,8 +1322,9 @@
       if (hasStore && hasAddr) {
         document.getElementById('finalStore').textContent =
           `${sel.storeName} (رقم ${sel.storeId})`;
-        document.getElementById('finalCode').textContent =
-          (resolvedAddress && resolvedAddress.code) || '— (إدخال يدوي)';
+        const codeVal = (document.getElementById('addrNationalCode').value || '').trim().toUpperCase()
+          || (resolvedAddress && resolvedAddress.code) || '';
+        document.getElementById('finalCode').textContent = codeVal || '— (إدخال يدوي)';
         document.getElementById('finalAddr').textContent = addr.full;
         finalSummary.classList.add('show');
 
@@ -1332,7 +1342,7 @@
     }
 
     // حدّث الملخّص فوراً عند تعديل أي حقل عنوان
-    ['addrCity','addrDistrict','addrStreet','addrBuilding','addrFull','addrLat','addrLng','addrPostCode']
+    ['addrNationalCode','addrCity','addrDistrict','addrStreet','addrBuilding','addrFull','addrLat','addrLng','addrPostCode']
       .forEach(id => {
         const el = document.getElementById(id);
         if (el) el.addEventListener('input', updateFinalSummary);
