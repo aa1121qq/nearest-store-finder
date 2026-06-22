@@ -182,7 +182,7 @@
   <!-- ===== Developer Mode (يسار، تفاعلي لايف) ===== -->
   <div class="dev-panel" id="devPanel">
     <h3>⚙ DEVELOPER MODE</h3>
-    <div class="sub">منطق جلب العنوان الوطني — تفاعلي لايف</div>
+    <div class="sub">National address resolution logic — live</div>
     <div id="devBody"></div>
   </div>
 
@@ -531,46 +531,46 @@
     function renderDev() {
       const body = document.getElementById('devBody'); if (!body) return;
       const s = dev || {};
-      const pend = '<span class="dev-warn">بانتظار «تأكيد الموقع»</span>';
+      const pend = '<span class="dev-warn">Waiting for "Confirm location"</span>';
       const coords = (s.lat != null)
         ? '<div class="dev-kv"><span class="k">lat</span> = <span class="v">' + s.lat.toFixed(6) + '</span></div>' +
           '<div class="dev-kv"><span class="k">lng</span> = <span class="v">' + s.lng.toFixed(6) + '</span></div>'
-        : '<span class="dev-warn">حرّك الخريطة لتحديد الموقع...</span>';
+        : '<span class="dev-warn">Move the map to set a location...</span>';
       const step3 = s.done
-        ? (s.directCode ? '<span class="v">' + s.directCode + '</span> <span class="dev-ok">✓ مطابقة مباشرة</span>'
-                        : '<span class="dev-warn">لا يوجد رمز في نص Google</span>')
+        ? (s.directCode ? '<span class="v">' + s.directCode + '</span> <span class="dev-ok">✓ direct match</span>'
+                        : '<span class="dev-warn">no code in Google text</span>')
         : pend;
       const step4 = s.done
         ? (s.nearbyUsed
-            ? (s.nearbyCode ? '<span class="v">' + s.nearbyCode + '</span> <span class="dev-ok">✓ يبعد ~' + s.nearbyOffset + 'م</span>'
-                            : '<span class="dev-warn">لم يُعثر على رمز قريب</span>')
-            : '<span class="dev-ok">لم نحتجه (وُجد مباشرة)</span>')
+            ? (s.nearbyCode ? '<span class="v">' + s.nearbyCode + '</span> <span class="dev-ok">✓ ~' + s.nearbyOffset + 'm away</span>'
+                            : '<span class="dev-warn">no nearby code found</span>')
+            : '<span class="dev-ok">not needed (found directly)</span>')
         : pend;
-      const finalCode = s.done ? (s.finalCode ? '<span class="v">' + s.finalCode + '</span>' : '<span class="dev-warn">يدوي</span>') : pend;
+      const finalCode = s.done ? (s.finalCode ? '<span class="v">' + s.finalCode + '</span>' : '<span class="dev-warn">manual</span>') : pend;
 
       body.innerHTML =
-        '<div class="dev-step"><div class="lbl">STEP 1 — مركز الخريطة (لايف)</div>' +
-        '<div class="desc">الموقع المختار = مركز الخريطة · بلا طلب</div>' + coords + '</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 1 — Map center (live)</div>' +
+        '<div class="desc">Selected location = map center · no request</div>' + coords + '</div>' +
         '<div class="dev-arrow">↓</div>' +
         '<div class="dev-step"><div class="lbl">STEP 2 — Google Reverse Geocode</div>' +
-        '<div class="desc">طلب واحد: إحداثيات → نص العنوان</div>' +
+        '<div class="desc">One request: coordinates → address text</div>' +
         '<div class="dev-kv"><span class="k">formatted</span> =<br><span class="v">' + (s.done ? esc(s.formatted) : pend) + '</span></div></div>' +
         '<div class="dev-arrow">↓</div>' +
-        '<div class="dev-step"><div class="lbl">STEP 3 — استخراج الرمز</div>' +
-        '<div class="desc">نمط: [A-Z]{4}[0-9]{4} داخل النص</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 3 — Extract national code</div>' +
+        '<div class="desc">Pattern: [A-Z]{4}[0-9]{4} inside the text</div>' +
         '<div class="dev-kv"><span class="k">match</span> = ' + step3 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
-        '<div class="dev-step"><div class="lbl">STEP 4 — بحث أقرب رمز (عند الحاجة)</div>' +
-        '<div class="desc">حلقات 20/40/70م × 4 جهات · يتوقف عند أول رمز</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 4 — Nearest-code search (if needed)</div>' +
+        '<div class="desc">Rings 20/40/70m × 4 directions · stops at first code</div>' +
         '<div class="dev-kv"><span class="k">nearest</span> = ' + step4 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
-        '<div class="dev-step"><div class="lbl">✓ النتيجة النهائية</div>' +
-        '<div class="dev-kv"><span class="k">الرمز الوطني</span> = ' + finalCode + '</div>' +
-        '<div class="dev-kv"><span class="k">المدينة</span> = <span class="v">' + (s.done ? esc(s.city || '—') : '—') + '</span></div>' +
-        '<div class="dev-kv"><span class="k">الحي</span> = <span class="v">' + (s.done ? esc(s.district || '—') : '—') + '</span></div></div>' +
-        '<div class="dev-step"><div class="lbl">💲 تكلفة هذه العملية</div>' +
+        '<div class="dev-step"><div class="lbl">✓ Final result</div>' +
+        '<div class="dev-kv"><span class="k">national code</span> = ' + finalCode + '</div>' +
+        '<div class="dev-kv"><span class="k">city</span> = <span class="v">' + (s.done ? esc(s.city || '—') : '—') + '</span></div>' +
+        '<div class="dev-kv"><span class="k">district</span> = <span class="v">' + (s.done ? esc(s.district || '—') : '—') + '</span></div></div>' +
+        '<div class="dev-step"><div class="lbl">💲 Cost of this operation</div>' +
         '<div class="dev-kv"><span class="k">Google requests</span> = <span class="dev-badge">' + (s.requests || 0) + '</span></div>' +
-        '<div class="desc">1 للقراءة + حتى 12 للبحث القريب عند الحاجة</div></div>';
+        '<div class="desc">1 for read + up to 12 for nearby search when needed</div></div>';
     }
     renderDev();
 
