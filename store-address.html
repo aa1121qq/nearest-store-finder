@@ -148,6 +148,29 @@
     .btn-submit { width: 100%; margin-top: 22px; padding: 15px; background: var(--dark); color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
     .btn-submit:hover { background: #000; }
 
+    /* ===== Developer Mode (يسار، ظاهر دائماً) ===== */
+    .dev-panel {
+      position: fixed; top: 0; left: 0; width: 360px; height: 100vh; overflow-y: auto;
+      background: #0d1117; color: #c9d1d9; z-index: 50; padding: 16px 18px;
+      font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.65;
+      direction: ltr; text-align: left; box-shadow: 2px 0 14px rgba(0,0,0,0.35);
+    }
+    .dev-panel h3 { color: #58a6ff; font-size: 14px; margin-bottom: 2px; }
+    .dev-panel .sub { color: #8b949e; font-size: 11px; margin-bottom: 14px; }
+    .dev-step { margin-bottom: 12px; padding: 10px 12px; background: #161b22; border: 1px solid #21262d; border-radius: 8px; }
+    .dev-step .lbl { color: #58a6ff; font-weight: 700; font-size: 11px; letter-spacing: 0.4px; }
+    .dev-step .desc { color: #8b949e; font-size: 10.5px; margin: 3px 0 7px; }
+    .dev-kv { word-break: break-word; }
+    .dev-kv .k { color: #7ee787; }
+    .dev-kv .v { color: #ffa657; }
+    .dev-ok { color: #3fb950; }
+    .dev-warn { color: #d29922; }
+    .dev-badge { display: inline-block; background: #1f6feb; color: #fff; padding: 1px 9px; border-radius: 10px; font-weight: 700; }
+    .dev-arrow { color: #8b949e; text-align: center; margin: -6px 0 6px; }
+    @media (max-width: 1280px) {
+      .dev-panel { position: static; width: 100%; height: auto; margin-bottom: 16px; }
+    }
+
     @media (max-width: 600px) {
       .grid { grid-template-columns: 1fr; }
       .picker-tools { flex-direction: column; align-items: stretch; }
@@ -156,6 +179,13 @@
   </style>
 </head>
 <body>
+  <!-- ===== Developer Mode (يسار، تفاعلي لايف) ===== -->
+  <div class="dev-panel" id="devPanel">
+    <h3>⚙ DEVELOPER MODE</h3>
+    <div class="sub">منطق جلب العنوان الوطني — تفاعلي لايف</div>
+    <div id="devBody"></div>
+  </div>
+
   <div class="wrap">
 
     <!-- ===== منتقي الخريطة ===== -->
@@ -263,6 +293,7 @@
 
     let gMap = null, gGeocoder = null, currentLoc = null, picked = null;
     let mapReady = false, mapLoading = false, geocodeTimer = null;
+    let dev = {}, gReq = 0;   // حالة لوحة Developer Mode + عدّاد طلبات Google
 
     function haversineKm(a1, o1, a2, o2) {
       const R = 6371, dLat = (a2-a1)*Math.PI/180, dLon = (o2-o1)*Math.PI/180;
@@ -316,6 +347,10 @@
         elL2.textContent = 'اضغط «تأكيد الموقع» لقراءة العنوان';
         elDist.classList.remove('show');
         confirmBtn.disabled = false;
+        // تحديث لايف لإحداثيات المركز في لوحة Developer (مجاناً، بلا طلب)
+        const c = gMap.getCenter();
+        dev = { lat: c.lat(), lng: c.lng(), live: true };
+        renderDev();
       });
 
       // مربّع البحث
@@ -337,6 +372,7 @@
       return new Promise((resolve) => {
         const c = gMap.getCenter();
         const lat = c.lat(), lng = c.lng();
+        gReq++;
         gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
           if (status !== 'OK' || !results || !results[0]) { picked = null; resolve(null); return; }
           picked = parse(results[0]); picked.lat = lat; picked.lng = lng;
@@ -366,6 +402,7 @@
     // إرجاع نتيجة geocode لنقطة كـ Promise
     function geocodeLatLng(lat, lng) {
       return new Promise((resolve) => {
+        gReq++;
         gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
           resolve((status === 'OK' && results && results[0]) ? results[0] : null);
         });
@@ -432,52 +469,110 @@
       );
     });
 
-    // تأكيد الموقع → اقرأ العنوان (طلب واحد) ثم املأ النموذج
+    // تأكيد الموقع → اقرأ العنوان (طلب واحد) ثم املأ النموذج + لوحة Developer
     confirmBtn.addEventListener('click', async () => {
       if (!gMap) return;
       const hint = document.getElementById('naCodeHint');
+      gReq = 0;                                   // ابدأ عدّ الطلبات لهذه العملية
       confirmBtn.disabled = true;
       confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
       elL1.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
 
-      const p = await readCenterAddress();   // ← الطلب الوحيد
+      const p = await readCenterAddress();        // ← الطلب الأساسي
       if (!p) {
         confirmBtn.disabled = false; confirmBtn.textContent = 'تأكيد الموقع';
         elL1.textContent = 'تعذّر قراءة العنوان هنا'; elL2.textContent = '—';
+        dev = { lat: dev.lat, lng: dev.lng, formatted: '(فشل القراءة)', requests: gReq, done: true };
+        renderDev();
         return;
       }
       setVal('city', p.city || '');
       setVal('district', p.district || '');
       setVal('addressLine', p.formatted || '');
 
+      let nearbyUsed = false, found = null;
       if (p.code) {
         setVal('naCode', p.code);
         hint.className = 'field-hint ok';
         hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
-        confirmBtn.disabled = false;
-        finishConfirm();
-        return;
+      } else {
+        nearbyUsed = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ البحث عن أقرب رمز وطني...';
+        hint.className = 'field-hint warn';
+        hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
+        found = await probeNearbyCode(p.lat, p.lng);
+        if (found) {
+          setVal('naCode', found.code);
+          hint.className = 'field-hint ok';
+          hint.textContent = '✓ أقرب رمز وطني: ' + found.code + ' (يبعد ~' + found.offset + ' متر).';
+        } else {
+          setVal('naCode', '');
+          hint.className = 'field-hint warn';
+          hint.textContent = '⚠️ لم يُعثر على رمز وطني قريب — أدخله يدوياً.';
+        }
       }
-
-      // لا رمز في النقطة → ابحث عن أقرب رمز وطني حولها
-      confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ البحث عن أقرب رمز وطني...';
-      hint.className = 'field-hint warn';
-      hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
-
-      const found = await probeNearbyCode(p.lat, p.lng);
       confirmBtn.disabled = false;
 
-      if (found) {
-        setVal('naCode', found.code);
-        hint.className = 'field-hint ok';
-        hint.textContent = '✓ أقرب رمز وطني: ' + found.code + ' (يبعد ~' + found.offset + ' متر).';
-      } else {
-        setVal('naCode', '');
-        hint.className = 'field-hint warn';
-        hint.textContent = '⚠️ لم يُعثر على رمز وطني قريب — أدخله يدوياً.';
-      }
+      // غذِّ لوحة Developer بالبيانات الحيّة
+      dev = {
+        lat: p.lat, lng: p.lng, formatted: p.formatted,
+        directCode: p.code || null,
+        nearbyUsed, nearbyCode: found ? found.code : null, nearbyOffset: found ? found.offset : null,
+        finalCode: p.code || (found ? found.code : ''),
+        city: p.city, district: p.district, region: p.region,
+        requests: gReq, done: true
+      };
+      renderDev();
       finishConfirm();
     });
+
+    // عرض منطق جلب العنوان الوطني (تفاعلي لايف)
+    function esc(t){ return String(t == null ? '' : t).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+    function renderDev() {
+      const body = document.getElementById('devBody'); if (!body) return;
+      const s = dev || {};
+      const pend = '<span class="dev-warn">بانتظار «تأكيد الموقع»</span>';
+      const coords = (s.lat != null)
+        ? '<div class="dev-kv"><span class="k">lat</span> = <span class="v">' + s.lat.toFixed(6) + '</span></div>' +
+          '<div class="dev-kv"><span class="k">lng</span> = <span class="v">' + s.lng.toFixed(6) + '</span></div>'
+        : '<span class="dev-warn">حرّك الخريطة لتحديد الموقع...</span>';
+      const step3 = s.done
+        ? (s.directCode ? '<span class="v">' + s.directCode + '</span> <span class="dev-ok">✓ مطابقة مباشرة</span>'
+                        : '<span class="dev-warn">لا يوجد رمز في نص Google</span>')
+        : pend;
+      const step4 = s.done
+        ? (s.nearbyUsed
+            ? (s.nearbyCode ? '<span class="v">' + s.nearbyCode + '</span> <span class="dev-ok">✓ يبعد ~' + s.nearbyOffset + 'م</span>'
+                            : '<span class="dev-warn">لم يُعثر على رمز قريب</span>')
+            : '<span class="dev-ok">لم نحتجه (وُجد مباشرة)</span>')
+        : pend;
+      const finalCode = s.done ? (s.finalCode ? '<span class="v">' + s.finalCode + '</span>' : '<span class="dev-warn">يدوي</span>') : pend;
+
+      body.innerHTML =
+        '<div class="dev-step"><div class="lbl">STEP 1 — مركز الخريطة (لايف)</div>' +
+        '<div class="desc">الموقع المختار = مركز الخريطة · بلا طلب</div>' + coords + '</div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 2 — Google Reverse Geocode</div>' +
+        '<div class="desc">طلب واحد: إحداثيات → نص العنوان</div>' +
+        '<div class="dev-kv"><span class="k">formatted</span> =<br><span class="v">' + (s.done ? esc(s.formatted) : pend) + '</span></div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 3 — استخراج الرمز</div>' +
+        '<div class="desc">نمط: [A-Z]{4}[0-9]{4} داخل النص</div>' +
+        '<div class="dev-kv"><span class="k">match</span> = ' + step3 + '</div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 4 — بحث أقرب رمز (عند الحاجة)</div>' +
+        '<div class="desc">حلقات 20/40/70م × 4 جهات · يتوقف عند أول رمز</div>' +
+        '<div class="dev-kv"><span class="k">nearest</span> = ' + step4 + '</div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">✓ النتيجة النهائية</div>' +
+        '<div class="dev-kv"><span class="k">الرمز الوطني</span> = ' + finalCode + '</div>' +
+        '<div class="dev-kv"><span class="k">المدينة</span> = <span class="v">' + (s.done ? esc(s.city || '—') : '—') + '</span></div>' +
+        '<div class="dev-kv"><span class="k">الحي</span> = <span class="v">' + (s.done ? esc(s.district || '—') : '—') + '</span></div></div>' +
+        '<div class="dev-step"><div class="lbl">💲 تكلفة هذه العملية</div>' +
+        '<div class="dev-kv"><span class="k">Google requests</span> = <span class="dev-badge">' + (s.requests || 0) + '</span></div>' +
+        '<div class="desc">1 للقراءة + حتى 12 للبحث القريب عند الحاجة</div></div>';
+    }
+    renderDev();
 
     function finishConfirm() {
       confirmBtn.textContent = '✓ تم تأكيد الموقع';
