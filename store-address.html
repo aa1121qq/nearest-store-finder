@@ -93,7 +93,7 @@
     .dist-strip.show { display: block; }
     .dist-strip b { color: #b8860b; }
     .addr-row {
-      display: flex; align-items: center; gap: 14px; padding: 14px 18px;
+      display: flex; align-items: center; gap: 14px; padding: 14px 18px 18px;
     }
     .addr-row .pin-ico {
       width: 46px; height: 46px; border-radius: 50%; flex: none;
@@ -103,11 +103,11 @@
     .addr-row .addr-text .lbl { font-size: 12px; color: var(--blue); font-weight: 700; }
     .addr-row .addr-text .l1 { font-size: 15px; font-weight: 800; color: var(--text); }
     .addr-row .addr-text .l2 { font-size: 13px; color: var(--muted); }
-    .confirm-row { padding: 0 18px 16px; }
     .btn-confirm-loc {
-      width: 100%; padding: 15px; background: var(--blue); color: #fff; border: none;
-      border-radius: 10px; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer;
-      box-shadow: 0 3px 10px rgba(26,115,232,0.3);
+      flex: none; align-self: center; white-space: nowrap;
+      padding: 11px 18px; background: var(--blue); color: #fff; border: none;
+      border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(26,115,232,0.3); min-width: 110px; text-align: center;
     }
     .btn-confirm-loc:hover { background: #1666cf; }
     .btn-confirm-loc:disabled { background: #9bbef0; cursor: not-allowed; box-shadow: none; }
@@ -221,8 +221,6 @@
             <div class="l1" id="pickL1">حرّك الخريطة لتحديد موقعك</div>
             <div class="l2" id="pickL2">—</div>
           </div>
-        </div>
-        <div class="confirm-row">
           <button type="button" class="btn-confirm-loc" id="confirmLocBtn" disabled>تأكيد الموقع</button>
         </div>
       </div>
@@ -475,7 +473,7 @@
       const hint = document.getElementById('naCodeHint');
       gReq = 0;                                   // ابدأ عدّ الطلبات لهذه العملية
       confirmBtn.disabled = true;
-      confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
+      confirmBtn.innerHTML = '<span class="spinner"></span>';
       elL1.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
 
       const p = await readCenterAddress();        // ← الطلب الأساسي
@@ -497,7 +495,7 @@
         hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
       } else {
         nearbyUsed = true;
-        confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ البحث عن أقرب رمز وطني...';
+        confirmBtn.innerHTML = '<span class="spinner"></span>';
         hint.className = 'field-hint warn';
         hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
         found = await probeNearbyCode(p.lat, p.lng);
@@ -575,7 +573,7 @@
     renderDev();
 
     function finishConfirm() {
-      confirmBtn.textContent = '✓ تم تأكيد الموقع';
+      confirmBtn.textContent = '✓ تم';
       setTimeout(() => { confirmBtn.textContent = 'تأكيد الموقع'; }, 1800);
       document.querySelector('.form-area').scrollIntoView({ behavior: 'smooth' });
     }
