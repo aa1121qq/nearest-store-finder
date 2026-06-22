@@ -133,6 +133,9 @@
     }
     .field input:focus, .field textarea:focus { outline: none; border-color: var(--blue); }
     .field textarea { min-height: 80px; resize: vertical; }
+    .field-hint { font-size: 12px; margin-top: 5px; min-height: 16px; }
+    .field-hint.warn { color: #b8860b; }
+    .field-hint.ok { color: #1a7f37; }
     .select-like {
       background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
       background-repeat: no-repeat; background-position: left 12px center;
@@ -203,6 +206,7 @@
           <div class="field full">
             <label for="naCode">رمز العنوان الوطني</label>
             <input type="text" id="naCode" placeholder="مثال: RBMA3761" maxlength="8" />
+            <div class="field-hint" id="naCodeHint"></div>
           </div>
           <div class="field">
             <label for="firstName">الاسم الأول</label>
@@ -237,7 +241,7 @@
             <textarea id="addressLine" placeholder="سيُعبّأ تلقائياً عند تأكيد الموقع، أو اكتبه يدوياً."></textarea>
           </div>
         </div>
-        <button type="submit" class="btn-submit">إضافة عنوان جديد</button>
+        <button type="submit" class="btn-submit">حفظ العنوان والمتابعة</button>
       </form>
     </div>
 
@@ -401,6 +405,17 @@
       setVal('city', picked.city || '');
       setVal('district', picked.district || '');
       setVal('addressLine', picked.formatted || '');
+
+      // تنبيه حالة الرمز الوطني
+      const hint = document.getElementById('naCodeHint');
+      if (picked.code) {
+        hint.className = 'field-hint ok';
+        hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
+      } else {
+        hint.className = 'field-hint warn';
+        hint.textContent = '⚠️ لم يوفّر Google رمزاً وطنياً لهذا الموقع — يمكنك إدخاله يدوياً.';
+      }
+
       confirmBtn.textContent = '✓ تم تأكيد الموقع';
       setTimeout(() => { confirmBtn.textContent = 'تأكيد الموقع'; }, 1800);
       document.querySelector('.form-area').scrollIntoView({ behavior: 'smooth' });
