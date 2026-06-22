@@ -220,6 +220,16 @@
     .map-status.load { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
     .map-status.ok   { background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c; }
     .map-status.err  { background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c; }
+    /* زر تأكيد الموقع وقراءة العنوان */
+    .get-addr-btn {
+      width: 100%; margin-top: 10px; padding: 13px;
+      background: #1a73e8; color: #fff; border: none; border-radius: 8px;
+      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(26,115,232,0.3); transition: all 0.15s ease;
+    }
+    .get-addr-btn:hover { background: #1666cf; }
+    .get-addr-btn:active { transform: translateY(1px); }
+    .get-addr-btn:disabled { background: #9bbef0; cursor: not-allowed; box-shadow: none; }
 
     /* نموذج سبل */
     .sebl-row {
@@ -663,8 +673,9 @@
           <input type="text" id="mapSearch" class="map-search"
                  placeholder="🔍 ابحث عن عنوان أو حي للقفز إليه..." />
           <button type="button" id="locateBtn" class="locate-btn">📍 استخدم موقعي الحالي</button>
-          <p class="map-hint">اسحب الدبّوس أو انقر على موقعك بالضبط — ستُعبّأ حقول العنوان تلقائياً.</p>
+          <p class="map-hint">حرّك الدبّوس أو انقر على موقعك، ثم اضغط «تأكيد الموقع وقراءة العنوان».</p>
           <div id="naMap"></div>
+          <button type="button" id="confirmAddrBtn" class="get-addr-btn" disabled>✓ تأكيد الموقع وقراءة العنوان</button>
         </div>
 
         <div class="sebl-result" id="seblResult"></div>
@@ -1170,15 +1181,11 @@
         title: 'اسحبني لضبط موقع التسليم بدقّة'
       });
 
-      // النقر على الخريطة ينقل الدبّوس
-      gMap.addListener('click', (e) => {
-        gMarker.setPosition(e.latLng);
-        handlePinMoved(e.latLng);
-      });
-      // سحب الدبّوس
-      gMarker.addListener('dragend', (e) => handlePinMoved(e.latLng));
+      // النقر/السحب ينقل الدبّوس فقط — بدون قراءة (توفيراً للطلبات)
+      gMap.addListener('click', (e) => { gMarker.setPosition(e.latLng); markPinMoved(); });
+      gMarker.addListener('dragend', () => markPinMoved());
 
-      // مربّع البحث (Places Autocomplete)
+      // مربّع البحث (Places Autocomplete) — ينقل الدبّوس فقط
       const searchEl = document.getElementById('mapSearch');
       if (searchEl && google.maps.places) {
         const ac = new google.maps.places.Autocomplete(searchEl, {
@@ -1192,8 +1199,18 @@
             gMap.panTo(loc);
             gMap.setZoom(17);
             gMarker.setPosition(loc);
-            handlePinMoved(loc);
+            markPinMoved();
           }
+        });
+      }
+
+      // زر "تأكيد الموقع وقراءة العنوان" — هنا فقط يحدث استدعاء Google
+      const confirmAddrBtn = document.getElementById('confirmAddrBtn');
+      if (confirmAddrBtn) {
+        confirmAddrBtn.disabled = false;
+        confirmAddrBtn.addEventListener('click', () => {
+          const pos = gMarker.getPosition();
+          if (pos) handlePinMoved(pos);
         });
       }
 
@@ -1214,7 +1231,7 @@
               gMap.panTo(loc);
               gMap.setZoom(17);
               gMarker.setPosition(loc);
-              handlePinMoved(loc);
+              markPinMoved(); // ينقل الدبّوس فقط — القراءة عند زر التأكيد
             },
             (err) => {
               locateBtn.disabled = false;
@@ -1229,10 +1246,15 @@
       }
 
       mapInitialized = true;
-      setMapStatus('ok', '✓ الخريطة جاهزة — اسحب الدبّوس أو انقر على موقعك بالضبط.');
+      setMapStatus('ok', '✓ الخريطة جاهزة — حرّك الدبّوس ثم اضغط «تأكيد الموقع وقراءة العنوان».');
     }
 
-    // عند تحريك الدبّوس: reverse-geocode ثم تعبئة الحقول وفحص التطابق
+    // تحريك الدبّوس فقط (بدون استدعاء Google) — يذكّر بالضغط على زر التأكيد
+    function markPinMoved() {
+      setMapStatus('load', '📍 تم تحريك الدبّوس — اضغط «تأكيد الموقع وقراءة العنوان» لتعبئة الحقول.');
+    }
+
+    // قراءة العنوان (عند زر التأكيد فقط): reverse-geocode + تعبئة + فحص التطابق
     function handlePinMoved(latLng) {
       const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
       const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
