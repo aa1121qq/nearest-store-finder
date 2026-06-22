@@ -55,7 +55,9 @@
       border: none; border-radius: 10px; padding: 13px 16px;
       font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
       box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: inline-flex; align-items: center; gap: 7px;
     }
+    .use-current .loc-ico { flex: none; }
     .use-current:hover { background: #f3f8ff; }
     .use-current:disabled { opacity: 0.6; cursor: wait; }
 
@@ -200,7 +202,10 @@
           <span class="ico">🔍</span>
           <input type="text" id="mapSearch" placeholder="ابحث عن عنوانك الوطني، المبنى..." />
         </div>
-        <button type="button" class="use-current" id="useCurrentBtn">استخدم موقعك الحالي</button>
+        <button type="button" class="use-current" id="useCurrentBtn">
+          <svg class="loc-ico" viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+          <span>استخدم موقعك الحالي</span>
+        </button>
       </div>
 
       <div id="gmap"></div>
@@ -452,15 +457,16 @@
       await ensureMap();
       if (!navigator.geolocation) { elL1.textContent = 'المتصفّح لا يدعم تحديد الموقع'; return; }
       const btn = document.getElementById('useCurrentBtn');
-      btn.disabled = true; btn.textContent = 'جارٍ تحديد موقعك...';
+      const original = btn.innerHTML;   // يحفظ الأيقونة + النص
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> جارٍ تحديد موقعك...';
       navigator.geolocation.getCurrentPosition(
         (p) => {
-          btn.disabled = false; btn.textContent = 'استخدم موقعك الحالي';
+          btn.disabled = false; btn.innerHTML = original;
           currentLoc = { lat: p.coords.latitude, lng: p.coords.longitude };
           gMap.panTo(currentLoc); gMap.setZoom(17); // idle سيقرأ المركز تلقائياً
         },
         () => {
-          btn.disabled = false; btn.textContent = 'استخدم موقعك الحالي';
+          btn.disabled = false; btn.innerHTML = original;
           elL1.textContent = 'تعذّر تحديد موقعك — حرّك الخريطة يدوياً';
         },
         { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
