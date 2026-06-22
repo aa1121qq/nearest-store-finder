@@ -309,10 +309,13 @@
       });
       mapReady = true;
 
-      // عند توقّف حركة الخريطة → اقرأ مركزها (debounce)
+      // تحريك الخريطة لا يستهلك أي طلب — القراءة عند زر "تأكيد الموقع" فقط
       gMap.addListener('idle', () => {
-        clearTimeout(geocodeTimer);
-        geocodeTimer = setTimeout(readCenter, 350);
+        picked = null;
+        elL1.textContent = 'موقع محدد على الخريطة';
+        elL2.textContent = 'اضغط «تأكيد الموقع» لقراءة العنوان';
+        elDist.classList.remove('show');
+        confirmBtn.disabled = false;
       });
 
       // مربّع البحث
@@ -326,23 +329,20 @@
           if (p.geometry && p.geometry.location) { gMap.panTo(p.geometry.location); gMap.setZoom(17); }
         });
       }
-      readCenter();
+      // الحالة الابتدائية تُضبط تلقائياً عبر حدث idle (بدون طلب)
     }
 
-    // قراءة العنوان من مركز الخريطة
-    function readCenter() {
-      if (!gMap) return;
-      const c = gMap.getCenter();
-      const lat = c.lat(), lng = c.lng();
-      elL1.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
-      gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
-        if (status !== 'OK' || !results || !results[0]) {
-          elL1.textContent = 'تعذّر قراءة العنوان هنا'; elL2.textContent = '—';
-          confirmBtn.disabled = true; picked = null; return;
-        }
-        picked = parse(results[0]); picked.lat = lat; picked.lng = lng;
-        renderPicked();
-        confirmBtn.disabled = false;
+    // قراءة العنوان من مركز الخريطة (طلب Google واحد) — عند التأكيد فقط
+    function readCenterAddress() {
+      return new Promise((resolve) => {
+        const c = gMap.getCenter();
+        const lat = c.lat(), lng = c.lng();
+        gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status !== 'OK' || !results || !results[0]) { picked = null; resolve(null); return; }
+          picked = parse(results[0]); picked.lat = lat; picked.lng = lng;
+          renderPicked();
+          resolve(picked);
+        });
       });
     }
 
@@ -432,30 +432,39 @@
       );
     });
 
-    // تأكيد الموقع → املأ النموذج
+    // تأكيد الموقع → اقرأ العنوان (طلب واحد) ثم املأ النموذج
     confirmBtn.addEventListener('click', async () => {
-      if (!picked) return;
-      setVal('city', picked.city || '');
-      setVal('district', picked.district || '');
-      setVal('addressLine', picked.formatted || '');
+      if (!gMap) return;
       const hint = document.getElementById('naCodeHint');
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
+      elL1.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
 
-      if (picked.code) {
-        // الرمز متوفّر مباشرة من النقطة
-        setVal('naCode', picked.code);
+      const p = await readCenterAddress();   // ← الطلب الوحيد
+      if (!p) {
+        confirmBtn.disabled = false; confirmBtn.textContent = 'تأكيد الموقع';
+        elL1.textContent = 'تعذّر قراءة العنوان هنا'; elL2.textContent = '—';
+        return;
+      }
+      setVal('city', p.city || '');
+      setVal('district', p.district || '');
+      setVal('addressLine', p.formatted || '');
+
+      if (p.code) {
+        setVal('naCode', p.code);
         hint.className = 'field-hint ok';
         hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
+        confirmBtn.disabled = false;
         finishConfirm();
         return;
       }
 
       // لا رمز في النقطة → ابحث عن أقرب رمز وطني حولها
-      confirmBtn.disabled = true;
       confirmBtn.innerHTML = '<span class="spinner"></span> جارٍ البحث عن أقرب رمز وطني...';
       hint.className = 'field-hint warn';
       hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
 
-      const found = await probeNearbyCode(picked.lat, picked.lng);
+      const found = await probeNearbyCode(p.lat, p.lng);
       confirmBtn.disabled = false;
 
       if (found) {
