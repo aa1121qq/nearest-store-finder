@@ -199,6 +199,15 @@
       font-size: 14px; font-family: inherit;
     }
     .map-search:focus { outline: none; border-color: var(--red); }
+    .locate-btn {
+      width: 100%; padding: 11px 14px; margin-bottom: 8px;
+      background: #fff; color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      font-family: inherit; font-size: 14px; font-weight: 700;
+      cursor: pointer; transition: all 0.15s ease;
+    }
+    .locate-btn:hover { border-color: var(--red); color: var(--red); }
+    .locate-btn:disabled { opacity: 0.6; cursor: wait; }
     .map-hint {
       font-size: 12px; color: var(--muted);
       margin: 8px 0 4px;
@@ -653,6 +662,7 @@
           <div class="map-status" id="mapStatus"></div>
           <input type="text" id="mapSearch" class="map-search"
                  placeholder="🔍 ابحث عن عنوان أو حي للقفز إليه..." />
+          <button type="button" id="locateBtn" class="locate-btn">📍 استخدم موقعي الحالي</button>
           <p class="map-hint">اسحب الدبّوس أو انقر على موقعك بالضبط — ستُعبّأ حقول العنوان تلقائياً.</p>
           <div id="naMap"></div>
         </div>
@@ -873,8 +883,9 @@
       { tag: 'lng',      id: 'addrLng',      getValue: r => r.lng != null ? String(r.lng) : '' }
     ];
 
-    // عبّئ الحقول من رد سبل وأبرزها بصرياً
-    function populateAddressFields(r) {
+    // عبّئ الحقول من رد سبل/الخريطة وأبرزها بصرياً
+    function populateAddressFields(r, sourceLabel) {
+      sourceLabel = sourceLabel || 'من سبل';
       ADDRESS_FIELDS.forEach(f => {
         const el = document.getElementById(f.id);
         if (!el) return;
@@ -887,7 +898,9 @@
         el.classList.add('auto-filled');
         const tagEl = document.querySelector(`.field-source-tag[data-tag="${f.tag}"]`);
         if (tagEl) {
-          tagEl.textContent = 'من سبل';
+          tagEl.textContent = sourceLabel;
+          tagEl.style.background = '';
+          tagEl.style.color = '';
           tagEl.classList.remove('empty');
         }
       });
@@ -1178,6 +1191,37 @@
         });
       }
 
+      // زر "استخدم موقعي الحالي" — يطلب GPS وينقل الدبّوس إليه
+      const locateBtn = document.getElementById('locateBtn');
+      if (locateBtn) {
+        locateBtn.addEventListener('click', () => {
+          if (!navigator.geolocation) {
+            setMapStatus('err', '❌ المتصفّح لا يدعم تحديد الموقع.');
+            return;
+          }
+          locateBtn.disabled = true;
+          setMapStatus('load', '⏳ جارٍ طلب موقعك الحالي...');
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              locateBtn.disabled = false;
+              const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+              gMap.panTo(loc);
+              gMap.setZoom(17);
+              gMarker.setPosition(loc);
+              handlePinMoved(loc);
+            },
+            (err) => {
+              locateBtn.disabled = false;
+              const msg = err.code === err.PERMISSION_DENIED
+                ? 'رفضت إذن الموقع. فعّله من إعدادات المتصفّح ثم أعد المحاولة.'
+                : 'تعذّر تحديد موقعك الحالي — حرّك الدبّوس يدوياً.';
+              setMapStatus('err', '❌ ' + msg);
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+          );
+        });
+      }
+
       mapInitialized = true;
       setMapStatus('ok', '✓ الخريطة جاهزة — اسحب الدبّوس أو انقر على موقعك بالضبط.');
     }
@@ -1210,7 +1254,7 @@
         };
 
         resolvedAddress = normalized;      // يقرأها الملخّص النهائي (نفس متغيّر سبل)
-        populateAddressFields(normalized); // تعبئة + وميض الحقول
+        populateAddressFields(normalized, 'من الخريطة'); // تعبئة + وميض الحقول
         runLocationMatchCheck(lat, lng);   // فحص التطابق مع GPS
         setMapStatus('ok', '✓ الموقع: <strong>' + (normalized.address || (lat.toFixed(6) + ', ' + lng.toFixed(6))) +
           '</strong> — تمت تعبئة الحقول، يمكنك تعديلها قبل التأكيد.');
