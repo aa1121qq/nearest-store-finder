@@ -422,7 +422,7 @@
     async function probeNearbyCode(lat, lng) {
       const mPerDegLat = 111320;
       const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180) || 111320;
-      const radii  = [30];                         // حلقة واحدة 30 متر (توفيراً للتكلفة)
+      const radii  = [70];                         // قفزة مباشرة للحد الأقصى 70 متر
       const angles = [0, 90, 180, 270];            // الجهات الأربع → 4 نقاط كحد أقصى
       for (const r of radii) {
         for (const a of angles) {
@@ -565,7 +565,7 @@
         '<div class="dev-kv"><span class="k">match</span> = ' + step3 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
         '<div class="dev-step"><div class="lbl">STEP 4 — Nearest-code search (if needed)</div>' +
-        '<div class="desc">Ring 30m × 4 points · stops at first code</div>' +
+        '<div class="desc">Direct jump to max 70m × 4 points · stops at first code</div>' +
         '<div class="dev-kv"><span class="k">nearest</span> = ' + step4 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
         '<div class="dev-step"><div class="lbl">✓ Final result</div>' +
