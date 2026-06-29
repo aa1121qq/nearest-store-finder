@@ -3,1160 +3,595 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>إضافة عنوان جديد | Nearest Store Finder</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-        crossorigin="" />
+  <title>إضافة عنوان جديد | محاكي صفحة المتجر</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
-      --bg-page: #f3f4f6;
-      --bg-card: #ffffff;
-      --bg-soft: #f9fafb;
-      --bg-softer: #f3f4f6;
-      --border: #e5e7eb;
-      --border-2: #f3f4f6;
-      --text-1: #111827;
-      --text-2: #6b7280;
-      --text-3: #9ca3af;
-      --blue-400: #60a5fa;
-      --blue-500: #3b82f6;
-      --blue-600: #2563eb;
-      --blue-700: #1d4ed8;
-      --blue-50:  #eff6ff;
-      --blue-100: #dbeafe;
-      --green-600: #16a34a;
-      --green-700: #15803d;
-      --pink-50:  #fff0f4;
-      --pink-500: #e8396a;
-      --amber-50:  #fffbeb;
-      --amber-100: #fef3c7;
-      --amber-500: #f59e0b;
-      --amber-800: #92400e;
-      --red-50:  #fef2f2;
-      --red-500: #ef4444;
-      --red-700: #b91c1c;
-      --gray-900: #111827;
-      --gray-800: #1f2937;
+      --label: #9c6644; --border: #d9d9d9; --dark: #111;
+      --blue: #1a73e8; --text: #222; --muted: #888;
+    }
+    body {
+      font-family: "Segoe UI", Tahoma, "Cairo", Arial, sans-serif;
+      background: #f4f4f4; color: var(--text); line-height: 1.6; padding: 20px 12px;
+    }
+    .wrap {
+      max-width: 820px; margin: 0 auto; background: #fff;
+      border: 1px solid #ececec; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 2px 14px rgba(0,0,0,0.05);
     }
 
-    html, body {
-      height: 100%;
-      font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
-      background: var(--bg-page);
-      color: var(--text-1);
-      line-height: 1.5;
-      font-size: 14px;
-      -webkit-font-smoothing: antialiased;
-    }
-    a { color: inherit; text-decoration: none; }
-    button { font-family: inherit; cursor: pointer; }
-
-    .page {
-      min-height: 100vh;
-      display: flex;
-      justify-content: center;
-    }
-
-    .picker {
-      width: 100%;
-      max-width: 672px;
-      background: var(--bg-card);
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    @media (min-width: 1024px) {
-      .page { padding: 32px 0; }
-      .picker {
-        min-height: 0;
-        margin: 32px 0;
-        border-radius: 24px;
-        box-shadow: 0 25px 50px -12px rgba(0,0,0,0.20);
-        overflow: hidden;
-      }
-    }
-
-    /* Header */
-    .picker-header {
+    /* ===== صندوق منتقي الخريطة ===== */
+    .picker { position: relative; }
+    .picker-head {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 20px 16px 12px;
-      background: #fff;
-      flex-shrink: 0;
+      padding: 14px 18px; border-bottom: 1px solid #eee;
     }
-    .picker-header .close-btn,
-    .picker-header .arrow-btn {
-      width: 36px; height: 36px;
-      border-radius: 50%;
-      background: var(--bg-softer);
-      border: none;
-      display: inline-flex; align-items: center; justify-content: center;
-      color: var(--text-2);
-      transition: background 0.2s;
-    }
-    .picker-header .arrow-btn { width: 32px; height: 32px; }
-    .picker-header .close-btn:hover,
-    .picker-header .arrow-btn:hover { background: var(--border); }
-    .picker-header .title-group { display: flex; align-items: center; gap: 8px; }
-    .picker-header h1 {
-      font-size: 15px; font-weight: 800; color: var(--text-1); letter-spacing: -0.2px;
+    .picker-head .title { font-size: 17px; font-weight: 800; display: flex; align-items: center; gap: 10px; }
+    .picker-head .close {
+      width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--border);
+      background: #fff; cursor: pointer; font-size: 16px; color: #555;
     }
 
-    /* Search bar */
-    .picker-search {
-      padding: 0 16px 12px;
-      background: #fff;
-      flex-shrink: 0;
+    /* شريط البحث + استخدم موقعك */
+    .picker-tools {
+      position: absolute; top: 64px; left: 12px; right: 12px; z-index: 6;
+      display: flex; gap: 10px; align-items: center;
     }
-    .search-wrap { position: relative; }
-    .search-wrap input {
-      width: 100%;
-      border-radius: 16px;
-      border: 1px solid var(--border);
-      background: var(--bg-soft);
-      padding: 12px 16px 12px 44px;
-      font-size: 14px;
-      color: var(--text-1);
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-      direction: rtl; text-align: right;
+    .search-box {
+      flex: 1; position: relative; background: #fff; border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
     }
-    .search-wrap input::placeholder { color: var(--text-3); }
-    .search-wrap input:focus {
-      border-color: var(--blue-400);
-      box-shadow: 0 0 0 3px var(--blue-100);
+    .search-box input {
+      width: 100%; padding: 13px 42px 13px 14px; border: none; border-radius: 10px;
+      font-family: inherit; font-size: 14px; background: transparent;
     }
-    .search-wrap button {
-      position: absolute; left: 14px; top: 50%;
-      transform: translateY(-50%);
-      background: transparent; border: none;
-      color: var(--text-3);
-      width: 26px; height: 26px;
-      display: inline-flex; align-items: center; justify-content: center;
+    .search-box input:focus { outline: none; }
+    .search-box .ico {
+      position: absolute; top: 50%; right: 14px; transform: translateY(-50%);
+      color: #888; font-size: 16px; pointer-events: none;
     }
-    .search-wrap button:hover { color: var(--blue-500); }
+    .use-current {
+      white-space: nowrap; background: #fff; color: var(--blue);
+      border: none; border-radius: 10px; padding: 13px 16px;
+      font-family: inherit; font-weight: 700; font-size: 14px; cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+      display: inline-flex; align-items: center; gap: 7px;
+    }
+    .use-current .loc-ico { flex: none; }
+    .use-current:hover { background: #f3f8ff; }
+    .use-current:disabled { opacity: 0.6; cursor: wait; }
 
-    .use-location-btn {
-      margin-top: 8px;
-      width: 100%;
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 16px;
-      border-radius: 16px;
-      border: 1px solid var(--border-2);
-      background: #fff;
-      color: var(--blue-600);
-      font-size: 14px; font-weight: 500;
-      transition: background 0.2s, border-color 0.2s;
-    }
-    .use-location-btn:hover {
-      background: var(--blue-50);
-      border-color: var(--blue-100);
-    }
-    .use-location-btn:disabled { opacity: 0.6; cursor: wait; }
+    #gmap { width: 100%; height: 460px; background: #eef1f4; }
 
-    /* Pulsing blue dot */
-    .pulse-wrap {
-      position: relative;
-      display: inline-flex; align-items: center; justify-content: center;
-      width: 24px; height: 24px;
-      flex-shrink: 0;
+    /* الدبّوس الثابت في المنتصف */
+    .center-pin {
+      position: absolute; top: 50%; left: 50%; z-index: 5;
+      transform: translate(-50%, -100%); pointer-events: none;
+      display: flex; flex-direction: column; align-items: center;
     }
-    .pulse-wrap .ping {
-      position: absolute; inset: 0;
-      border-radius: 50%;
-      background: var(--blue-400);
-      opacity: 0.6;
-      animation: ping 1.8s cubic-bezier(0,0,0.2,1) infinite;
-    }
-    .pulse-wrap .dot {
-      position: relative;
-      width: 20px; height: 20px;
-      border-radius: 50%;
-      background: var(--blue-600);
-      display: inline-flex; align-items: center; justify-content: center;
-      color: #fff;
-    }
-    @keyframes ping {
-      75%, 100% { transform: scale(2); opacity: 0; }
-    }
-
-    /* Map */
-    .picker-map {
-      position: relative;
-      background: #e5ddd0;
-      flex-shrink: 0;
-      height: clamp(220px, 38vw, 340px);
-    }
-    .picker-map #map {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-    }
-    .store-icon {
-      background: #ef4444; color: #fff;
-      width: 28px; height: 28px;
-      border-radius: 50% 50% 50% 0;
-      transform: rotate(-45deg);
-      display: flex; align-items: center; justify-content: center;
+    .center-pin .bubble {
+      background: #111; color: #fff; font-size: 12px; font-weight: 700;
+      padding: 6px 12px; border-radius: 8px; white-space: nowrap; margin-bottom: 6px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-      border: 2px solid #fff;
     }
-    .store-icon span { transform: rotate(45deg); font-size: 14px; font-weight: 700; }
-    .store-icon.nearest { background: #22c55e; }
-    .user-pin-wrap { pointer-events: auto; transform: translateY(-22px); }
-    .user-pin { display: flex; flex-direction: column; align-items: center; }
-    .pin-tooltip {
-      position: relative;
-      background: #1a1a1a; color: #fff;
-      padding: 6px 12px;
-      border-radius: 10px;
-      font-size: 11px; font-weight: 600;
-      white-space: nowrap;
-      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
-      margin-bottom: 8px;
+    .center-pin .bubble::after {
+      content: ''; position: absolute; top: 28px; left: 50%; transform: translateX(-50%);
+      border: 6px solid transparent; border-top-color: #111;
     }
-    .pin-tooltip::after {
-      content: ''; position: absolute;
-      left: 50%; bottom: -6px;
-      transform: translateX(-50%);
-      width: 0; height: 0;
-      border-left: 5px solid transparent;
-      border-right: 5px solid transparent;
-      border-top: 7px solid #1a1a1a;
+    .center-pin .dot {
+      width: 18px; height: 18px; border-radius: 50%;
+      background: #111; border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
     }
-    .pin-shadow {
-      margin-top: 2px;
-      width: 16px; height: 4px;
-      background: rgba(0,0,0,0.25);
-      border-radius: 50%;
-      filter: blur(2px);
-    }
-    .map-fab {
-      position: absolute;
-      bottom: 12px; left: 12px;
-      width: 34px; height: 34px;
-      background: #fff;
-      border: 1px solid var(--border-2);
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
-      display: inline-flex; align-items: center; justify-content: center;
-      color: var(--text-2);
-    }
-    .map-fab:hover { background: var(--bg-soft); }
-    .map-attribution {
-      position: absolute;
-      bottom: 4px; right: 6px;
-      font-size: 9px;
-      color: var(--text-2);
-      background: rgba(255,255,255,0.75);
-      padding: 1px 6px;
-      border-radius: 3px;
+    .center-pin .stick {
+      width: 2px; height: 14px; background: #111; margin-top: -2px;
     }
 
-    /* Body */
-    .picker-body {
-      flex: 1;
-      padding: 20px 16px 32px;
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
+    /* الشريط السفلي: العنوان + المسافة + تأكيد */
+    .picker-foot { border-top: 1px solid #eee; }
+    .dist-strip {
+      background: #fff8e1; color: #8a6d3b; font-size: 13px; font-weight: 600;
+      padding: 8px 18px; text-align: center; display: none;
     }
-
-    /* Location card */
-    .loc-card {
-      display: flex; gap: 12px;
-      padding: 12px;
-      background: var(--bg-soft);
-      border: 1px solid var(--border-2);
-      border-radius: 16px;
-      align-items: flex-start;
+    .dist-strip.show { display: block; }
+    .dist-strip b { color: #b8860b; }
+    .addr-row {
+      display: flex; align-items: center; gap: 14px; padding: 14px 18px 18px;
     }
-    .loc-card .icon-box {
-      flex-shrink: 0;
-      width: 40px; height: 40px;
-      border-radius: 12px;
-      background: var(--pink-50);
-      display: inline-flex; align-items: center; justify-content: center;
-      color: var(--pink-500);
+    .addr-row .pin-ico {
+      width: 46px; height: 46px; border-radius: 50%; flex: none;
+      background: #f1f4f9; display: flex; align-items: center; justify-content: center; font-size: 20px;
     }
-    .loc-card .loc-body { flex: 1; min-width: 0; }
-    .loc-card .loc-top { display: flex; justify-content: space-between; gap: 8px; }
-    .loc-card .loc-title {
-      font-size: 14px; font-weight: 700; color: var(--text-1); line-height: 1.4;
+    .addr-row .addr-text { flex: 1; }
+    .addr-row .addr-text .lbl { font-size: 12px; color: var(--blue); font-weight: 700; }
+    .addr-row .addr-text .l1 { font-size: 15px; font-weight: 800; color: var(--text); }
+    .addr-row .addr-text .l2 { font-size: 13px; color: var(--muted); }
+    .btn-confirm-loc {
+      flex: none; align-self: center; white-space: nowrap;
+      padding: 11px 18px; background: var(--blue); color: #fff; border: none;
+      border-radius: 10px; font-family: inherit; font-size: 14px; font-weight: 800; cursor: pointer;
+      box-shadow: 0 3px 10px rgba(26,115,232,0.3); min-width: 110px; text-align: center;
     }
-    .loc-card .loc-badge {
-      flex-shrink: 0;
-      font-size: 10px; font-weight: 700;
-      padding: 2px 8px; border-radius: 999px;
-      background: var(--pink-50); color: var(--pink-500);
-    }
-    .loc-card .loc-sub {
-      font-size: 12px; color: var(--text-3);
-      margin-top: 2px; line-height: 1.6;
-    }
-    .loc-card.confirmed .loc-sub { color: var(--green-600); font-weight: 500; }
-
-    /* Primary buttons */
-    .primary-btn {
-      width: 100%; padding: 12px 16px;
-      border-radius: 16px; border: none;
-      color: #fff; font-size: 14px; font-weight: 700;
-      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
-      background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
-      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.28);
-      transition: transform 0.1s, opacity 0.15s;
-    }
-    .primary-btn:hover { opacity: 0.92; }
-    .primary-btn:active { transform: scale(0.985); }
-    .primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-    .primary-btn.confirmed,
-    .primary-btn.success {
-      background: linear-gradient(135deg, var(--green-600), var(--green-700));
-      box-shadow: 0 4px 18px rgba(22,163,74,0.28);
-    }
-    .primary-btn.dark {
-      background: linear-gradient(135deg, var(--gray-900), var(--gray-800));
-      box-shadow: 0 4px 18px rgba(17,24,39,0.28);
-    }
-    .primary-btn.dark.success {
-      background: linear-gradient(135deg, var(--green-600), var(--green-700));
-    }
-
-    /* Section divider */
-    .section-divider { display: flex; align-items: center; gap: 12px; }
-    .section-divider .line { flex: 1; height: 1px; background: var(--border); }
-    .section-divider .label {
-      font-size: 14px; font-weight: 700; color: var(--text-1);
-    }
-
-    /* Form */
-    .form-grid {
-      display: grid;
-      grid-template-columns: 1fr;
-      gap: 12px;
-    }
-    @media (min-width: 480px) {
-      .form-grid { grid-template-columns: 1fr 1fr; }
-    }
-    .form-grid .full { grid-column: 1 / -1; }
-    .form-field { display: flex; flex-direction: column; gap: 4px; }
-    .form-field label {
-      font-size: 11px; font-weight: 600; color: var(--text-2);
-      text-align: right;
-    }
-    .form-field input,
-    .form-field select,
-    .form-field textarea {
-      width: 100%;
-      border-radius: 12px;
-      border: 1px solid var(--border);
-      background: var(--bg-soft);
-      padding: 10px 14px;
-      font-size: 14px;
-      color: var(--text-1);
-      font-family: inherit;
-      outline: none;
-      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
-      direction: rtl; text-align: right;
-    }
-    .form-field input::placeholder,
-    .form-field textarea::placeholder { color: var(--text-3); }
-    .form-field input:focus,
-    .form-field select:focus,
-    .form-field textarea:focus {
-      border-color: var(--blue-400);
-      box-shadow: 0 0 0 3px var(--blue-100);
-      background: #fff;
-    }
-    .form-field textarea { resize: none; min-height: 60px; line-height: 1.6; }
-    .form-field .src-tag {
-      display: inline-block;
-      font-size: 9px; font-weight: 700;
-      padding: 2px 7px; border-radius: 999px;
-      background: var(--bg-softer); color: var(--text-3);
-      margin-left: 4px;
-      transition: background 0.2s, color 0.2s;
-    }
-    .form-field .src-tag.filled { background: #ecfdf5; color: #047857; }
-    .form-field .src-tag.edited { background: var(--amber-100); color: var(--amber-800); }
-
-    .phone-row { display: flex; gap: 8px; }
-    .phone-row input { flex: 1; direction: ltr; text-align: left; }
-    .phone-row .phone-code-wrap { position: relative; flex-shrink: 0; }
-    .phone-row .phone-code-wrap select {
-      padding: 10px 12px 10px 28px;
-      appearance: none; cursor: pointer; font-weight: 500;
-    }
-    .phone-row .phone-code-wrap .chev {
-      position: absolute; left: 8px; top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-3); pointer-events: none;
-    }
-
-    .select-wrap { position: relative; }
-    .select-wrap select { padding-left: 36px; appearance: none; cursor: pointer; }
-    .select-wrap .chev {
-      position: absolute; left: 12px; top: 50%;
-      transform: translateY(-50%);
-      color: var(--text-3); pointer-events: none;
-    }
-
-    /* Disclaimer / Match check */
-    .disclaimer {
-      display: flex; gap: 8px;
-      padding: 12px;
-      border-radius: 12px;
-      background: var(--blue-50);
-      border: 1px solid var(--blue-100);
-      align-items: flex-start;
-    }
-    .disclaimer .ico { color: var(--blue-400); flex-shrink: 0; margin-top: 1px; }
-    .disclaimer .msg {
-      font-size: 12px; color: var(--blue-600); line-height: 1.6; text-align: right;
-    }
-    .disclaimer.warn { background: var(--amber-50); border-color: var(--amber-100); }
-    .disclaimer.warn .ico { color: var(--amber-500); }
-    .disclaimer.warn .msg { color: var(--amber-800); }
-    .disclaimer.block { background: var(--red-50); border-color: #fecaca; }
-    .disclaimer.block .ico { color: var(--red-500); }
-    .disclaimer.block .msg { color: var(--red-700); }
-    .disclaimer.ok { background: #ecfdf5; border-color: #a7f3d0; }
-    .disclaimer.ok .ico { color: var(--green-600); }
-    .disclaimer.ok .msg { color: var(--green-700); }
-
-    .sebl-result {
-      padding: 10px 14px;
-      border-radius: 12px;
-      font-size: 13px;
-      display: none;
-    }
-    .sebl-result.show { display: block; }
-    .sebl-result.loading { background: #f5f5f5; color: #666; border: 1px solid #e0e0e0; }
-    .sebl-result.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
-    .sebl-result.ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .btn-confirm-loc:hover { background: #1666cf; }
+    .btn-confirm-loc:disabled { background: #9bbef0; cursor: not-allowed; box-shadow: none; }
 
     .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid currentColor;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      vertical-align: middle;
+      display: inline-block; width: 14px; height: 14px; border: 2px solid currentColor;
+      border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; vertical-align: middle;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes flashFill { 0% { background: #fff9c4; } 100% { background: #fff; } }
+    .auto-filled { animation: flashFill 1.2s ease-out; }
 
-    /* Developer Mode */
-    .dev-toggle {
-      position: fixed; left: 0; top: 50%;
-      transform: translateY(-50%);
-      background: #111; color: #fff;
-      border: none; padding: 14px 10px;
-      cursor: pointer;
-      font-family: "Consolas", "Courier New", monospace;
-      font-size: 13px; font-weight: 700; letter-spacing: 1px;
-      border-radius: 0 8px 8px 0;
-      box-shadow: 2px 2px 8px rgba(0,0,0,0.25);
-      writing-mode: vertical-rl;
-      text-orientation: mixed;
-      z-index: 1000;
-      transition: background 0.2s;
+    /* ===== نموذج العنوان (نفس تصميم المتجر) ===== */
+    .form-area { padding: 22px; }
+    .form-area .sec-title { font-size: 15px; font-weight: 800; margin-bottom: 14px; color: #333; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px 18px; }
+    .field { display: flex; flex-direction: column; }
+    .field.full { grid-column: 1 / -1; }
+    .field label { font-size: 13px; color: var(--label); margin-bottom: 6px; font-weight: 600; }
+    .field input, .field textarea {
+      width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: 6px;
+      font-family: inherit; font-size: 14px; background: #fff; color: var(--text);
     }
-    .dev-toggle:hover { background: #d62828; }
-    .dev-toggle .dot {
-      display: inline-block; width: 8px; height: 8px;
-      border-radius: 50%; background: #4ade80;
-      margin-bottom: 6px; animation: blink 1.5s infinite;
+    .field input:focus, .field textarea:focus { outline: none; border-color: var(--blue); }
+    .field textarea { min-height: 80px; resize: vertical; }
+    .field-hint { font-size: 12px; margin-top: 5px; min-height: 16px; }
+    .field-hint.warn { color: #b8860b; }
+    .field-hint.ok { color: #1a7f37; }
+    .select-like {
+      background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'><polyline points='6 9 12 15 18 9'/></svg>");
+      background-repeat: no-repeat; background-position: left 12px center;
     }
-    @keyframes blink { 50% { opacity: 0.3; } }
+    .phone-row { display: flex; gap: 8px; }
+    .phone-row input { flex: 1; }
+    .phone-row .btn-c { background: var(--dark); color: #fff; border: none; border-radius: 6px; padding: 0 16px; font-family: inherit; font-weight: 700; cursor: pointer; font-size: 13px; }
+    .phone-row .country { display: flex; align-items: center; gap: 6px; white-space: nowrap; border: 1px solid var(--border); border-radius: 6px; padding: 0 12px; font-size: 13px; background: #fff; }
+    .flag { background: #1a7f37; color: #fff; font-size: 10px; padding: 1px 4px; border-radius: 3px; }
+    .btn-submit { width: 100%; margin-top: 22px; padding: 15px; background: var(--dark); color: #fff; border: none; border-radius: 8px; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+    .btn-submit:hover { background: #000; }
+
+    /* ===== Developer Mode (يسار، ظاهر دائماً) ===== */
     .dev-panel {
-      position: fixed; left: 0; top: 0; bottom: 0;
-      width: 540px; max-width: 100vw;
-      background: #1a1a1a; color: #e0e0e0;
-      box-shadow: 4px 0 24px rgba(0,0,0,0.4);
-      z-index: 1001;
-      transform: translateX(-100%);
-      transition: transform 0.3s ease-out;
-      display: flex; flex-direction: column;
-      direction: ltr; text-align: left;
-      font-family: "Consolas", "Courier New", monospace;
-      font-size: 13px;
+      position: fixed; top: 0; left: 0; width: 360px; height: 100vh; overflow-y: auto;
+      background: #0d1117; color: #c9d1d9; z-index: 50; padding: 16px 18px;
+      font-family: "Consolas", "Courier New", monospace; font-size: 12px; line-height: 1.65;
+      direction: ltr; text-align: left; box-shadow: 2px 0 14px rgba(0,0,0,0.35);
     }
-    .dev-panel.open { transform: translateX(0); }
-    .dev-header {
-      background: #000; padding: 14px 18px;
-      display: flex; justify-content: space-between; align-items: center;
-      border-bottom: 2px solid #333;
+    .dev-panel h3 { color: #58a6ff; font-size: 14px; margin-bottom: 2px; }
+    .dev-panel .sub { color: #8b949e; font-size: 11px; margin-bottom: 14px; }
+    .dev-step { margin-bottom: 12px; padding: 10px 12px; background: #161b22; border: 1px solid #21262d; border-radius: 8px; }
+    .dev-step .lbl { color: #58a6ff; font-weight: 700; font-size: 11px; letter-spacing: 0.4px; }
+    .dev-step .desc { color: #8b949e; font-size: 10.5px; margin: 3px 0 7px; }
+    .dev-kv { word-break: break-word; }
+    .dev-kv .k { color: #7ee787; }
+    .dev-kv .v { color: #ffa657; }
+    .dev-ok { color: #3fb950; }
+    .dev-warn { color: #d29922; }
+    .dev-badge { display: inline-block; background: #1f6feb; color: #fff; padding: 1px 9px; border-radius: 10px; font-weight: 700; }
+    .dev-arrow { color: #8b949e; text-align: center; margin: -6px 0 6px; }
+    @media (max-width: 1280px) {
+      .dev-panel { position: static; width: 100%; height: auto; margin-bottom: 16px; }
     }
-    .dev-title { font-size: 14px; font-weight: 700; color: #4ade80; }
-    .dev-close {
-      background: none; border: none; color: #e0e0e0;
-      font-size: 20px; cursor: pointer; padding: 4px 8px;
-    }
-    .dev-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
-    .dev-section { margin-bottom: 18px; }
-    .step-label { color: #4ade80; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 6px; }
-    .step-title { color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
-    .step-content {
-      background: #252525; padding: 10px 12px; border-radius: 4px;
-      border-left: 3px solid #4ade80; line-height: 1.7;
-      color: #d0d0d0; font-size: 12px;
-    }
-    .dev-var { color: #60a5fa; font-weight: 700; }
-    .dev-val { color: #f87171; }
-    .api-url { color: #a78bfa; word-break: break-all; font-size: 11px; }
-    .dev-table {
-      width: 100%; border-collapse: collapse;
-      font-size: 11px; margin-top: 4px;
-    }
-    .dev-table th, .dev-table td {
-      border: 1px solid #333; padding: 5px 6px; text-align: right;
-      font-family: "Consolas", monospace;
-    }
-    .dev-table th { background: #2a2a2a; color: #4ade80; font-size: 10px; font-weight: 700; text-align: center; }
-    .dev-table td:first-child { text-align: center; color: #60a5fa; }
-    .dev-decision { padding: 10px 12px; border-radius: 4px; font-weight: 700; border-left: 3px solid; }
-    .dev-decision.ok    { background: #0d2a1a; color: #4ade80; border-color: #4ade80; }
-    .dev-decision.warn  { background: #2a200d; color: #fbbf24; border-color: #fbbf24; }
-    .dev-decision.block { background: #2a0d0d; color: #f87171; border-color: #f87171; }
-    .dev-placeholder { text-align: center; padding: 30px 20px; color: #666; font-size: 13px; line-height: 1.6; }
+
     @media (max-width: 600px) {
-      .dev-panel { width: 100vw; }
-      .dev-toggle { padding: 10px 6px; font-size: 11px; }
+      .grid { grid-template-columns: 1fr; }
+      .picker-tools { flex-direction: column; align-items: stretch; }
+      #gmap { height: 420px; }
     }
   </style>
 </head>
 <body>
-
-  <button class="dev-toggle" id="devToggle" type="button" aria-label="Toggle developer mode">
-    <span class="dot"></span>
-    Developer Mode
-  </button>
-  <aside class="dev-panel" id="devPanel" aria-hidden="true">
-    <div class="dev-header">
-      <span class="dev-title">▼ DEVELOPER MODE — Store Address</span>
-      <button class="dev-close" id="devClose" type="button">✕</button>
-    </div>
-    <div class="dev-body">
-      <div class="dev-placeholder" id="devPlaceholder">
-        Enter a national-address code<br>
-        (e.g. <strong>RRRD3005</strong>) and click<br>
-        "تأكيد الموقع" to see the full flow here.
-      </div>
-      <div id="devContent" style="display:none;"></div>
-    </div>
-  </aside>
-
-  <div class="page">
-    <div class="picker">
-
-      <div class="picker-header">
-        <button class="close-btn" type="button" aria-label="إغلاق" onclick="window.location.href='index.html'">
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-        </button>
-        <div class="title-group">
-          <h1>إضافة عنوان جديد</h1>
-          <button class="arrow-btn" type="button" aria-label="رجوع" onclick="window.location.href='index.html'">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="picker-search">
-        <div class="search-wrap">
-          <input type="text" id="seblInput"
-                 placeholder="ابحث عن عنوانك الوطني، المبنى..."
-                 maxlength="8" autocomplete="off" />
-          <button type="button" id="seblBtn" aria-label="بحث">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-        </div>
-        <button class="use-location-btn" type="button" id="useGpsBtn">
-          <span class="pulse-wrap">
-            <span class="ping"></span>
-            <span class="dot">
-              <svg width="11" height="11" viewBox="0 0 24 24" fill="white" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
-            </span>
-          </span>
-          <span>استخدام موقعك الحالي</span>
-        </button>
-      </div>
-
-      <div class="picker-map">
-        <div id="map"></div>
-        <button class="map-fab" type="button" id="recenterBtn" aria-label="إعادة التمركز">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-        </button>
-        <span class="map-attribution">© OpenStreetMap</span>
-      </div>
-
-      <div class="picker-body">
-
-        <div class="loc-card" id="locCard">
-          <div class="icon-box">
-            <svg width="19" height="19" viewBox="0 0 24 24" fill="#fca5a5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-          </div>
-          <div class="loc-body">
-            <div class="loc-top">
-              <p class="loc-title" id="locTitle">موقع محدد على الخريطة</p>
-              <span class="loc-badge" id="locBadge">الموقع المحدد</span>
-            </div>
-            <p class="loc-sub" id="locSub">اضغط "تأكيد الموقع" لقراءة العنوان</p>
-          </div>
-        </div>
-
-        <button class="primary-btn" id="confirmBtn" type="button">
-          <span id="confirmContent">تأكيد الموقع</span>
-        </button>
-
-        <div class="sebl-result" id="seblResult"></div>
-
-        <div class="disclaimer" id="matchBox" style="display:none;">
-          <div class="ico">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </div>
-          <div class="msg" id="matchMsg">—</div>
-        </div>
-
-        <div class="section-divider">
-          <div class="line"></div>
-          <div class="label">تفاصيل العنوان</div>
-          <div class="line"></div>
-        </div>
-
-        <div class="form-grid">
-          <div class="form-field full">
-            <label>رقم الوحدة / رقم المبنى <span class="src-tag" data-tag="building">يدوي</span></label>
-            <input type="text" id="addrBuilding" placeholder="رقم الوحدة" />
-          </div>
-          <div class="form-field">
-            <label>الاسم الأول</label>
-            <input type="text" id="firstName" placeholder="الاسم الأول" />
-          </div>
-          <div class="form-field">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="email" placeholder="example@gmail.com" />
-          </div>
-          <div class="form-field full">
-            <label>الهاتف</label>
-            <div class="phone-row">
-              <input type="tel" id="phone" placeholder="05XXXXXXXX" />
-              <div class="phone-code-wrap">
-                <select id="phoneCode">
-                  <option value="+966" selected>+966</option>
-                  <option value="+971">+971</option>
-                  <option value="+965">+965</option>
-                  <option value="+973">+973</option>
-                  <option value="+968">+968</option>
-                  <option value="+974">+974</option>
-                </select>
-                <span class="chev">
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="form-field">
-            <label>الدولة</label>
-            <div class="select-wrap">
-              <select id="country">
-                <option>السعودية</option><option>الإمارات</option><option>الكويت</option>
-                <option>البحرين</option><option>عُمان</option><option>قطر</option>
-              </select>
-              <span class="chev">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-              </span>
-            </div>
-          </div>
-          <div class="form-field">
-            <label>المدينة <span class="src-tag" data-tag="city">يدوي</span></label>
-            <input type="text" id="addrCity" placeholder="الرياض" />
-          </div>
-          <div class="form-field">
-            <label>الحي <span class="src-tag" data-tag="district">يدوي</span></label>
-            <input type="text" id="addrDistrict" placeholder="حي العارض" />
-          </div>
-          <div class="form-field">
-            <label>الشارع <span class="src-tag" data-tag="street">يدوي</span></label>
-            <input type="text" id="addrStreet" placeholder="سليمان بن مراد" />
-          </div>
-          <div class="form-field">
-            <label>الرمز البريدي <span class="src-tag" data-tag="postCode">يدوي</span></label>
-            <input type="text" id="addrPostCode" placeholder="13342" />
-          </div>
-          <div class="form-field">
-            <label>الرقم الإضافي</label>
-            <input type="text" id="addrAdditional" placeholder="7221" />
-          </div>
-          <div class="form-field">
-            <label>خط العرض <span class="src-tag" data-tag="lat">يدوي</span></label>
-            <input type="text" id="addrLat" placeholder="24.6740"
-                   style="direction:ltr;text-align:left;font-family:Consolas,monospace;" />
-          </div>
-          <div class="form-field">
-            <label>خط الطول <span class="src-tag" data-tag="lng">يدوي</span></label>
-            <input type="text" id="addrLng" placeholder="46.6604"
-                   style="direction:ltr;text-align:left;font-family:Consolas,monospace;" />
-          </div>
-          <div class="form-field full">
-            <label>العنوان</label>
-            <textarea id="addrFull" rows="2" placeholder="العنوان التفصيلي"></textarea>
-          </div>
-        </div>
-
-        <div class="disclaimer">
-          <div class="ico">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </div>
-          <p class="msg">تأكد من صحة العنوان قبل الحفظ. سيُستخدم لأغراض التوصيل.</p>
-        </div>
-
-        <button class="primary-btn dark" id="saveBtn" type="button">
-          <span id="saveContent">حفظ العنوان والمتابعة</span>
-        </button>
-
-      </div>
-    </div>
+  <!-- ===== Developer Mode (يسار، تفاعلي لايف) ===== -->
+  <div class="dev-panel" id="devPanel">
+    <h3>⚙ DEVELOPER MODE</h3>
+    <div class="sub">National address resolution logic — live</div>
+    <div id="devBody"></div>
   </div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-          crossorigin=""></script>
-  <script src="app.js"></script>
+  <div class="wrap">
+
+    <!-- ===== منتقي الخريطة ===== -->
+    <div class="picker">
+      <div class="picker-head">
+        <div class="title">→ إضافة عنوان جديد</div>
+        <button type="button" class="close" title="إغلاق" onclick="history.length>1?history.back():null">✕</button>
+      </div>
+
+      <div class="picker-tools">
+        <div class="search-box">
+          <span class="ico">🔍</span>
+          <input type="text" id="mapSearch" placeholder="ابحث عن عنوانك الوطني، المبنى..." />
+        </div>
+        <button type="button" class="use-current" id="useCurrentBtn">
+          <svg class="loc-ico" viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M12 8c-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4-1.79-4-4-4zm8.94 3A8.994 8.994 0 0 0 13 3.06V1h-2v2.06A8.994 8.994 0 0 0 3.06 11H1v2h2.06A8.994 8.994 0 0 0 11 20.94V23h2v-2.06A8.994 8.994 0 0 0 20.94 13H23v-2h-2.06zM12 19c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>
+          <span>استخدم موقعك الحالي</span>
+        </button>
+      </div>
+
+      <div id="gmap"></div>
+
+      <!-- دبّوس ثابت في منتصف الخريطة -->
+      <div class="center-pin">
+        <div class="bubble">العنوان هنا</div>
+        <div class="dot"></div>
+        <div class="stick"></div>
+      </div>
+
+      <div class="picker-foot">
+        <div class="dist-strip" id="distStrip"></div>
+        <div class="addr-row">
+          <div class="pin-ico">📍</div>
+          <div class="addr-text">
+            <div class="lbl">الموقع المحدد</div>
+            <div class="l1" id="pickL1">حرّك الخريطة لتحديد موقعك</div>
+            <div class="l2" id="pickL2">—</div>
+          </div>
+          <button type="button" class="btn-confirm-loc" id="confirmLocBtn" disabled>تأكيد الموقع</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== نموذج العنوان ===== -->
+    <div class="form-area">
+      <div class="sec-title">تفاصيل العنوان</div>
+      <form id="addressForm" onsubmit="return false;">
+        <div class="grid">
+          <div class="field full">
+            <label for="naCode">رمز العنوان الوطني</label>
+            <input type="text" id="naCode" placeholder="مثال: RBMA3761" maxlength="8" />
+            <div class="field-hint" id="naCodeHint"></div>
+          </div>
+          <div class="field">
+            <label for="firstName">الاسم الأول</label>
+            <input type="text" id="firstName" placeholder="abdulaziz" />
+          </div>
+          <div class="field">
+            <label for="lastName">اللقب</label>
+            <input type="text" id="lastName" placeholder="—" />
+          </div>
+          <div class="field full">
+            <label for="email">عنوان البريد الإلكتروني</label>
+            <input type="email" id="email" placeholder="example@gmail.com" />
+          </div>
+          <div class="field full">
+            <label for="phone">الجوال</label>
+            <div class="phone-row">
+              <span class="country"><span class="flag">SA</span> السعودية</span>
+              <input type="tel" id="phone" placeholder="05XXXXXXXX" />
+              <button type="button" class="btn-c">تأكيد</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="city">اختر المدينة</label>
+            <input type="text" id="city" class="select-like" placeholder="المدينة المنورة" />
+          </div>
+          <div class="field">
+            <label for="district">الحي</label>
+            <input type="text" id="district" class="select-like" placeholder="حي مذينب" />
+          </div>
+          <div class="field full">
+            <label for="addressLine">العنوان</label>
+            <textarea id="addressLine" placeholder="سيُعبّأ تلقائياً عند تأكيد الموقع، أو اكتبه يدوياً."></textarea>
+          </div>
+        </div>
+        <button type="submit" class="btn-submit">حفظ العنوان والمتابعة</button>
+      </form>
+    </div>
+
+  </div>
+
   <script>
     /* ============================================================
-       Store Address page — v2 single-column design
-       يحتفظ بكل المنطق (Sebl, location match, dev mode)
+       منتقي عنوان بنمط تطبيقات التوصيل — دبّوس وسط ثابت
+       ------------------------------------------------------------
+       - الدبّوس ثابت في منتصف الشاشة، والمستخدم يحرّك الخريطة.
+       - الموقع المختار = مركز الخريطة (gMap.getCenter()).
+       - reverse-geocode يحدث عند توقّف الحركة (idle) فقط — أوفر.
+       - "تأكيد الموقع" يملأ حقول النموذج.
        ============================================================ */
+    const elDist = document.getElementById('distStrip');
+    const elL1 = document.getElementById('pickL1');
+    const elL2 = document.getElementById('pickL2');
+    const confirmBtn = document.getElementById('confirmLocBtn');
 
-    const selection = loadSelection();
+    let gMap = null, gGeocoder = null, currentLoc = null, picked = null;
+    let mapReady = false, mapLoading = false, geocodeTimer = null;
+    let dev = {}, gReq = 0;   // حالة لوحة Developer Mode + عدّاد طلبات Google
 
-    /* ── Map ─────────────────────────────────────────────────── */
-    let mapInstance = null;
-    let userMarker  = null;
-    const storeMarkers = [];
-
-    function storeIcon(isNearest) {
-      return L.divIcon({
-        className: '', html: `<div class="store-icon ${isNearest?'nearest':''}"><span>🏬</span></div>`,
-        iconSize: [28,28], iconAnchor: [14,28]
-      });
-    }
-    function userIconLeaflet() {
-      return L.divIcon({
-        className: '',
-        html: `<div class="user-pin-wrap"><div class="user-pin">
-                 <div class="pin-tooltip">العنوان هنا</div>
-                 <svg width="34" height="44" viewBox="0 0 34 44" fill="none">
-                   <path d="M17 0C7.611 0 0 7.611 0 17c0 12.15 17 27 17 27S34 29.15 34 17C34 7.611 26.389 0 17 0z" fill="#1a1a1a"/>
-                   <circle cx="17" cy="17" r="7" fill="white"/>
-                 </svg>
-                 <div class="pin-shadow"></div>
-               </div></div>`,
-        iconSize: [34,66], iconAnchor: [17, 56]
-      });
+    function haversineKm(a1, o1, a2, o2) {
+      const R = 6371, dLat = (a2-a1)*Math.PI/180, dLon = (o2-o1)*Math.PI/180;
+      const x = Math.sin(dLat/2)**2 + Math.cos(a1*Math.PI/180)*Math.cos(a2*Math.PI/180)*Math.sin(dLon/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
     }
 
-    function initMap(centerLat, centerLng) {
-      if (mapInstance) {
-        userMarker && userMarker.setLatLng([centerLat, centerLng]);
+    async function ensureMap() {
+      if (mapReady || mapLoading) return;
+      mapLoading = true;
+      try {
+        const base = (window.SEBL_API_BASE || '');
+        const res = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
+        const cfg = await res.json().catch(() => ({}));
+        if (!res.ok || !cfg.success || !cfg.apiKey) throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة.');
+        await loadGoogle(cfg.apiKey);
+        initMap();
+      } catch (e) {
+        elL1.textContent = '❌ ' + (e.message || 'فشل تحميل الخريطة.');
+      } finally { mapLoading = false; }
+    }
+
+    function loadGoogle(apiKey) {
+      return new Promise((resolve, reject) => {
+        if (window.google && window.google.maps) return resolve();
+        window.__gmapsReady = () => resolve();
+        const s = document.createElement('script');
+        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) +
+                '&libraries=places&language=ar&region=SA&callback=__gmapsReady';
+        s.async = true; s.defer = true;
+        s.onerror = () => reject(new Error('تعذّر تحميل خريطة Google (تحقّق من المفتاح/تفعيل Maps JavaScript API).'));
+        document.head.appendChild(s);
+      });
+    }
+
+    function initMap() {
+      const start = { lat: 24.4709, lng: 39.6121 }; // المدينة المنورة
+      gGeocoder = new google.maps.Geocoder();
+      gMap = new google.maps.Map(document.getElementById('gmap'), {
+        center: start, zoom: 14,
+        mapTypeControl: false, streetViewControl: false, fullscreenControl: false,
+        gestureHandling: 'greedy', clickableIcons: false,
+        zoomControlOptions: { position: google.maps.ControlPosition.LEFT_TOP }
+      });
+      mapReady = true;
+
+      // تحريك الخريطة لا يستهلك أي طلب — القراءة عند زر "تأكيد الموقع" فقط
+      gMap.addListener('idle', () => {
+        picked = null;
+        elL1.textContent = 'موقع محدد على الخريطة';
+        elL2.textContent = 'اضغط «تأكيد الموقع» لقراءة العنوان';
+        elDist.classList.remove('show');
+        confirmBtn.disabled = false;
+        // تحديث لايف لإحداثيات المركز في لوحة Developer (مجاناً، بلا طلب)
+        const c = gMap.getCenter();
+        dev = { lat: c.lat(), lng: c.lng(), live: true };
+        renderDev();
+      });
+
+      // مربّع البحث
+      const searchEl = document.getElementById('mapSearch');
+      if (google.maps.places) {
+        const ac = new google.maps.places.Autocomplete(searchEl, {
+          componentRestrictions: { country: 'sa' }, fields: ['geometry']
+        });
+        ac.addListener('place_changed', () => {
+          const p = ac.getPlace();
+          if (p.geometry && p.geometry.location) { gMap.panTo(p.geometry.location); gMap.setZoom(17); }
+        });
+      }
+      // الحالة الابتدائية تُضبط تلقائياً عبر حدث idle (بدون طلب)
+    }
+
+    // قراءة العنوان من مركز الخريطة (طلب Google واحد) — عند التأكيد فقط
+    function readCenterAddress() {
+      return new Promise((resolve) => {
+        const c = gMap.getCenter();
+        const lat = c.lat(), lng = c.lng();
+        gReq++;
+        gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          if (status !== 'OK' || !results || !results[0]) { picked = null; resolve(null); return; }
+          picked = parse(results[0]); picked.lat = lat; picked.lng = lng;
+          renderPicked();
+          resolve(picked);
+        });
+      });
+    }
+
+    function parse(result) {
+      const out = { formatted: result.formatted_address || '' };
+      const m = (result.formatted_address || '').match(/\b([A-Z]{4}\d{4})\b/);
+      if (m) out.code = m[1];
+      (result.address_components || []).forEach(c => {
+        const t = c.types;
+        if (t.includes('neighborhood') || t.includes('sublocality') || t.includes('sublocality_level_1'))
+          out.district = out.district || c.long_name;
+        else if (t.includes('locality')) out.city = c.long_name;
+        else if (t.includes('administrative_area_level_1')) out.region = c.long_name;
+        else if (t.includes('administrative_area_level_2') && !out.city) out.city = c.long_name;
+        else if (t.includes('postal_code')) out.postCode = c.long_name;
+        else if (t.includes('country')) out.country = c.long_name;
+      });
+      return out;
+    }
+
+    // إرجاع نتيجة geocode لنقطة كـ Promise
+    function geocodeLatLng(lat, lng) {
+      return new Promise((resolve) => {
+        gReq++;
+        gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
+          resolve((status === 'OK' && results && results[0]) ? results[0] : null);
+        });
+      });
+    }
+    function extractCode(result) {
+      const m = ((result && result.formatted_address) || '').match(/\b([A-Z]{4}\d{4})\b/);
+      return m ? m[1] : null;
+    }
+
+    /* البحث عن أقرب رمز وطني حول النقطة (لما النقطة نفسها بلا رمز)
+       نفحص حلقات صغيرة (أمتار) ونتوقّف عند أول رمز نجده = الأقرب.
+       يُستهلك عدة طلبات Google، لذا نشغّله عند "تأكيد الموقع" فقط. */
+    async function probeNearbyCode(lat, lng) {
+      const mPerDegLat = 111320;
+      const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180) || 111320;
+      const radii  = [70];                         // قفزة مباشرة للحد الأقصى 70 متر
+      const angles = [0, 90, 180, 270];            // الجهات الأربع → 4 نقاط كحد أقصى
+      for (const r of radii) {
+        for (const a of angles) {
+          const rad = a * Math.PI / 180;
+          const dLat = (r * Math.cos(rad)) / mPerDegLat;
+          const dLng = (r * Math.sin(rad)) / mPerDegLng;
+          const res = await geocodeLatLng(lat + dLat, lng + dLng);
+          const code = extractCode(res);
+          if (code) return { code, offset: r };
+        }
+      }
+      return null;
+    }
+
+    function renderPicked() {
+      // السطر الأول: الرمز الوطني - المدينة
+      const l1 = [picked.code, picked.city].filter(Boolean).join(' - ') || picked.formatted || 'موقع محدد';
+      const l2 = [picked.postCode, picked.district, picked.region, picked.country].filter(Boolean).join(' - ');
+      elL1.textContent = l1;
+      elL2.textContent = l2 || picked.formatted || '—';
+
+      // المسافة عن الموقع الحالي
+      if (currentLoc) {
+        const d = haversineKm(currentLoc.lat, currentLoc.lng, picked.lat, picked.lng);
+        elDist.innerHTML = 'الموقع المحدد يبعد <b>' + d.toFixed(1) + ' km</b> عن الموقع الحالي';
+        elDist.classList.add('show');
+      }
+    }
+
+    // استخدم موقعك الحالي
+    document.getElementById('useCurrentBtn').addEventListener('click', async () => {
+      await ensureMap();
+      if (!navigator.geolocation) { elL1.textContent = 'المتصفّح لا يدعم تحديد الموقع'; return; }
+      const btn = document.getElementById('useCurrentBtn');
+      const original = btn.innerHTML;   // يحفظ الأيقونة + النص
+      btn.disabled = true; btn.innerHTML = '<span class="spinner"></span> جارٍ تحديد موقعك...';
+      navigator.geolocation.getCurrentPosition(
+        (p) => {
+          btn.disabled = false; btn.innerHTML = original;
+          currentLoc = { lat: p.coords.latitude, lng: p.coords.longitude };
+          gMap.panTo(currentLoc); gMap.setZoom(17); // idle سيقرأ المركز تلقائياً
+        },
+        () => {
+          btn.disabled = false; btn.innerHTML = original;
+          elL1.textContent = 'تعذّر تحديد موقعك — حرّك الخريطة يدوياً';
+        },
+        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      );
+    });
+
+    // تأكيد الموقع → اقرأ العنوان (طلب واحد) ثم املأ النموذج + لوحة Developer
+    confirmBtn.addEventListener('click', async () => {
+      if (!gMap) return;
+      const hint = document.getElementById('naCodeHint');
+      gReq = 0;                                   // ابدأ عدّ الطلبات لهذه العملية
+      confirmBtn.disabled = true;
+      confirmBtn.innerHTML = '<span class="spinner"></span>';
+      elL1.innerHTML = '<span class="spinner"></span> جارٍ قراءة العنوان...';
+
+      const p = await readCenterAddress();        // ← الطلب الأساسي
+      if (!p) {
+        confirmBtn.disabled = false; confirmBtn.textContent = 'تأكيد الموقع';
+        elL1.textContent = 'تعذّر قراءة العنوان هنا'; elL2.textContent = '—';
+        dev = { lat: dev.lat, lng: dev.lng, formatted: '(فشل القراءة)', requests: gReq, done: true };
+        renderDev();
         return;
       }
-      mapInstance = L.map('map', {
-        zoomControl: false, attributionControl: false
-      }).setView([centerLat, centerLng], 13);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(mapInstance);
-      stores.forEach(s => {
-        const m = L.marker([s.lat, s.lng], { icon: storeIcon(false) })
-          .addTo(mapInstance)
-          .bindPopup(`<strong>${s.name}</strong><br>رقم: ${s.id}`);
-        storeMarkers.push({ id: s.id, marker: m });
-      });
-      userMarker = L.marker([centerLat, centerLng], {
-        icon: userIconLeaflet(), draggable: true
-      }).addTo(mapInstance);
-      userMarker.on('dragend', e => {
-        const ll = e.target.getLatLng();
-        onLocationChanged(ll.lat, ll.lng);
-      });
-      refreshNearestHighlight(centerLat, centerLng);
+      setVal('city', p.city || '');
+      setVal('district', p.district || '');
+      setVal('addressLine', p.formatted || '');
+
+      let nearbyUsed = false, found = null;
+      if (p.code) {
+        setVal('naCode', p.code);
+        hint.className = 'field-hint ok';
+        hint.textContent = '✓ تم جلب الرمز الوطني من الخريطة.';
+      } else {
+        nearbyUsed = true;
+        confirmBtn.innerHTML = '<span class="spinner"></span>';
+        hint.className = 'field-hint warn';
+        hint.textContent = '⏳ جارٍ البحث عن أقرب رمز وطني حول الموقع...';
+        found = await probeNearbyCode(p.lat, p.lng);
+        if (found) {
+          setVal('naCode', found.code);
+          hint.className = 'field-hint ok';
+          hint.textContent = '✓ أقرب رمز وطني: ' + found.code + ' (يبعد ~' + found.offset + ' متر).';
+        } else {
+          setVal('naCode', '');
+          hint.className = 'field-hint warn';
+          hint.textContent = '⚠️ لم يُعثر على رمز وطني قريب — أدخله يدوياً.';
+        }
+      }
+      confirmBtn.disabled = false;
+
+      // غذِّ لوحة Developer بالبيانات الحيّة
+      dev = {
+        lat: p.lat, lng: p.lng, formatted: p.formatted,
+        directCode: p.code || null,
+        nearbyUsed, nearbyCode: found ? found.code : null, nearbyOffset: found ? found.offset : null,
+        finalCode: p.code || (found ? found.code : ''),
+        city: p.city, district: p.district, region: p.region,
+        requests: gReq, done: true
+      };
+      renderDev();
+      finishConfirm();
+    });
+
+    // عرض منطق جلب العنوان الوطني (تفاعلي لايف)
+    function esc(t){ return String(t == null ? '' : t).replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c])); }
+    function renderDev() {
+      const body = document.getElementById('devBody'); if (!body) return;
+      const s = dev || {};
+      const pend = '<span class="dev-warn">Waiting for "Confirm location"</span>';
+      const coords = (s.lat != null)
+        ? '<div class="dev-kv"><span class="k">lat</span> = <span class="v">' + s.lat.toFixed(6) + '</span></div>' +
+          '<div class="dev-kv"><span class="k">lng</span> = <span class="v">' + s.lng.toFixed(6) + '</span></div>'
+        : '<span class="dev-warn">Move the map to set a location...</span>';
+      const step3 = s.done
+        ? (s.directCode ? '<span class="v">' + s.directCode + '</span> <span class="dev-ok">✓ direct match</span>'
+                        : '<span class="dev-warn">no code in Google text</span>')
+        : pend;
+      const step4 = s.done
+        ? (s.nearbyUsed
+            ? (s.nearbyCode ? '<span class="v">' + s.nearbyCode + '</span> <span class="dev-ok">✓ ~' + s.nearbyOffset + 'm away</span>'
+                            : '<span class="dev-warn">no nearby code found</span>')
+            : '<span class="dev-ok">not needed (found directly)</span>')
+        : pend;
+      const finalCode = s.done ? (s.finalCode ? '<span class="v">' + s.finalCode + '</span>' : '<span class="dev-warn">manual</span>') : pend;
+
+      body.innerHTML =
+        '<div class="dev-step"><div class="lbl">STEP 1 — Map center (live)</div>' +
+        '<div class="desc">Selected location = map center · no request</div>' + coords + '</div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 2 — Google Reverse Geocode</div>' +
+        '<div class="desc">One request: coordinates → address text</div>' +
+        '<div class="dev-kv"><span class="k">formatted</span> =<br><span class="v">' + (s.done ? esc(s.formatted) : pend) + '</span></div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 3 — Extract national code</div>' +
+        '<div class="desc">Pattern: [A-Z]{4}[0-9]{4} inside the text</div>' +
+        '<div class="dev-kv"><span class="k">match</span> = ' + step3 + '</div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 4 — Nearest-code search (if needed)</div>' +
+        '<div class="desc">Direct jump to max 70m × 4 points · stops at first code</div>' +
+        '<div class="dev-kv"><span class="k">nearest</span> = ' + step4 + '</div></div>' +
+        '<div class="dev-arrow">↓</div>' +
+        '<div class="dev-step"><div class="lbl">✓ Final result</div>' +
+        '<div class="dev-kv"><span class="k">national code</span> = ' + finalCode + '</div>' +
+        '<div class="dev-kv"><span class="k">city</span> = <span class="v">' + (s.done ? esc(s.city || '—') : '—') + '</span></div>' +
+        '<div class="dev-kv"><span class="k">district</span> = <span class="v">' + (s.done ? esc(s.district || '—') : '—') + '</span></div></div>' +
+        '<div class="dev-step"><div class="lbl">💲 Cost of this operation</div>' +
+        '<div class="dev-kv"><span class="k">Google requests</span> = <span class="dev-badge">' + (s.requests || 0) + '</span></div>' +
+        '<div class="desc">1 (read) + up to 4 (nearby search) = max 5 total</div></div>';
+    }
+    renderDev();
+
+    function finishConfirm() {
+      confirmBtn.textContent = '✓ تم';
+      setTimeout(() => { confirmBtn.textContent = 'تأكيد الموقع'; }, 1800);
+      document.querySelector('.form-area').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function refreshNearestHighlight(lat, lng) {
-      let nearestId = null, minD = Infinity;
-      stores.forEach(s => {
-        const d = haversineKm(lat, lng, s.lat, s.lng);
-        if (d < minD) { minD = d; nearestId = s.id; }
-      });
-      storeMarkers.forEach(({id, marker}) => marker.setIcon(storeIcon(id === nearestId)));
-      return { nearestId, distance: minD };
-    }
-
-    function onLocationChanged(lat, lng) {
-      refreshNearestHighlight(lat, lng);
-      const latEl = document.getElementById('addrLat');
-      const lngEl = document.getElementById('addrLng');
-      latEl.value = lat.toFixed(6);
-      lngEl.value = lng.toFixed(6);
-      markSourceTag('lat', 'edited'); markSourceTag('lng', 'edited');
-    }
-
-    const defaultLat = (selection && selection.lat != null) ? selection.lat : 24.7136;
-    const defaultLng = (selection && selection.lng != null) ? selection.lng : 46.6753;
-    initMap(defaultLat, defaultLng);
-
-    /* ── Source tags ─────────────────────────────────────────── */
-    function markSourceTag(tag, status) {
-      const el = document.querySelector(`.src-tag[data-tag="${tag}"]`);
-      if (!el) return;
-      el.classList.remove('filled', 'edited');
-      if (status === 'filled') { el.textContent = 'من سبل'; el.classList.add('filled'); }
-      else if (status === 'edited') { el.textContent = 'تم تعديله'; el.classList.add('edited'); }
-      else { el.textContent = 'يدوي'; }
-    }
-    const idMap = { city:'addrCity', district:'addrDistrict', street:'addrStreet',
-                    building:'addrBuilding', postCode:'addrPostCode', lat:'addrLat', lng:'addrLng' };
-    Object.entries(idMap).forEach(([tag, id]) => {
+    function setVal(id, v) {
       const el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('input', () => {
-        if (el.classList.contains('was-auto-filled')) markSourceTag(tag, 'edited');
-      });
-    });
-
-    /* ── Sebl + Match check ──────────────────────────────────── */
-    const seblInput  = document.getElementById('seblInput');
-    const seblBtn    = document.getElementById('seblBtn');
-    const confirmBtn = document.getElementById('confirmBtn');
-    const confirmContent = document.getElementById('confirmContent');
-    const seblResult = document.getElementById('seblResult');
-    const locTitle   = document.getElementById('locTitle');
-    const locSub     = document.getElementById('locSub');
-    const locBadge   = document.getElementById('locBadge');
-    const locCard    = document.getElementById('locCard');
-    const matchBox   = document.getElementById('matchBox');
-    const matchMsg   = document.getElementById('matchMsg');
-
-    const CHECK_ICON = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-left:6px;vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg>';
-
-    let resolvedAddress = null;
-    let locationMatch   = { status: 'unknown', distance: null };
-    const MATCH_OK_KM    = 1;
-    const MATCH_BLOCK_KM = 5;
-
-    function showSeblResult(type, html) {
-      seblResult.className = 'sebl-result show ' + type;
-      seblResult.innerHTML = html;
-    }
-    function hideSeblResult() {
-      seblResult.className = 'sebl-result';
-      seblResult.innerHTML = '';
+      el.value = v;
+      el.classList.remove('auto-filled'); void el.offsetWidth; el.classList.add('auto-filled');
     }
 
-    function populateAddressFromSebl(r) {
-      const fields = [
-        ['city','addrCity', r.city],
-        ['district','addrDistrict', r.district],
-        ['street','addrStreet', r.street],
-        ['building','addrBuilding', r.building],
-        ['postCode','addrPostCode', r.postCode],
-        ['lat','addrLat', r.lat != null ? String(r.lat) : ''],
-        ['lng','addrLng', r.lng != null ? String(r.lng) : ''],
-      ];
-      fields.forEach(([tag, id, val]) => {
-        const el = document.getElementById(id);
-        if (!el) return;
-        el.value = val || '';
-        el.classList.add('was-auto-filled');
-        markSourceTag(tag, 'filled');
-      });
-      const addtl = document.getElementById('addrAdditional');
-      if (addtl) addtl.value = r.additionalNumber || '';
-      const full = document.getElementById('addrFull');
-      if (full) full.value = r.address || '';
-    }
-
-    function runMatchCheck(seblLat, seblLng) {
-      const sel = loadSelection();
-      const gpsLat = sel && sel.lat != null ? sel.lat : null;
-      const gpsLng = sel && sel.lng != null ? sel.lng : null;
-      if (gpsLat === null || gpsLng === null) {
-        matchBox.style.display = 'none';
-        locationMatch = { status: 'skipped', distance: null };
-        return;
-      }
-      const d = haversineKm(gpsLat, gpsLng, seblLat, seblLng);
-      const dStr = d < 1 ? `${Math.round(d*1000)} متر` : `${d.toFixed(2)} كم`;
-      matchBox.style.display = 'flex';
-      matchBox.classList.remove('ok', 'warn', 'block');
-      if (d <= MATCH_OK_KM) {
-        matchBox.classList.add('ok');
-        matchMsg.innerHTML = `<strong>✅ تطابق ممتاز</strong> — الفرق ${dStr} بين موقعك وعنوان سبل.`;
-        locationMatch = { status: 'ok', distance: d };
-      } else if (d <= MATCH_BLOCK_KM) {
-        matchBox.classList.add('warn');
-        matchMsg.innerHTML = `<strong>⚠️ فرق متوسط</strong> — ${dStr} بين موقعك وعنوان سبل. تأكّد قبل الحفظ.`;
-        locationMatch = { status: 'warn', distance: d };
-      } else {
-        matchBox.classList.add('block');
-        matchMsg.innerHTML = `<strong>❌ فرق كبير جداً</strong> — ${dStr}. لا يمكن إكمال الطلب. <a href="index.html" style="color:inherit;text-decoration:underline;">حدّد موقعك مجدداً</a>.`;
-        locationMatch = { status: 'block', distance: d };
-      }
-      updateSaveButton();
-      updateDevPanel();
-    }
-
-    async function doSeblLookup() {
-      const code = seblInput.value.trim().toUpperCase();
-      if (!code) {
-        showSeblResult('err', '❌ الرجاء إدخال رمز العنوان الوطني.');
-        return;
-      }
-      confirmBtn.disabled = true;
-      confirmContent.innerHTML = '<span class="spinner"></span>&nbsp; جارٍ الاتصال بسبل...';
-      showSeblResult('loading', '⏳ جارٍ الاتصال بخادم سبل...');
-
-      try {
-        const result = await fetchSeblAddress(code, 'A');
-        if (!result.ok) {
-          showSeblResult('err', '❌ ' + result.error);
-          resolvedAddress = null;
-          locTitle.textContent = 'تعذّر جلب العنوان';
-          locSub.textContent = result.error;
-          locSub.style.color = '#b91c1c';
-        } else {
-          resolvedAddress = result;
-          hideSeblResult();
-          populateAddressFromSebl(result);
-          locTitle.textContent = result.address;
-          locSub.innerHTML = `<span style="color:#16a34a;font-weight:600;">✓ تم تأكيد الموقع — ${result.code}</span>`;
-          locSub.style.color = '';
-          locBadge.style.background = '#dcfce7';
-          locBadge.style.color = '#15803d';
-          locBadge.textContent = 'تم التأكيد';
-          locCard.classList.add('confirmed');
-          confirmBtn.classList.add('confirmed');
-          if (mapInstance && result.lat != null && result.lng != null) {
-            mapInstance.setView([result.lat, result.lng], 15);
-            userMarker.setLatLng([result.lat, result.lng]);
-            refreshNearestHighlight(result.lat, result.lng);
-          }
-          if (result.lat != null && result.lng != null) {
-            runMatchCheck(result.lat, result.lng);
-          }
-        }
-      } catch (e) {
-        showSeblResult('err', '❌ خطأ غير متوقّع: ' + e.message);
-      } finally {
-        confirmBtn.disabled = false;
-        if (resolvedAddress) {
-          confirmContent.innerHTML = CHECK_ICON + 'تم تأكيد الموقع';
-        } else {
-          confirmContent.innerHTML = 'تأكيد الموقع';
-        }
-        updateSaveButton();
-        updateDevPanel();
-      }
-    }
-
-    seblBtn.addEventListener('click', doSeblLookup);
-    confirmBtn.addEventListener('click', doSeblLookup);
-    seblInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); doSeblLookup(); } });
-
-    /* ── Use current location ─────────────────────────────────── */
-    const useGpsBtn = document.getElementById('useGpsBtn');
-    const gpsBtnOrig = useGpsBtn.innerHTML;
-    useGpsBtn.addEventListener('click', () => {
-      if (!navigator.geolocation) { alert('متصفّحك لا يدعم تحديد الموقع.'); return; }
-      useGpsBtn.disabled = true;
-      useGpsBtn.innerHTML = '<span class="pulse-wrap"><span class="ping"></span><span class="dot"></span></span><span>جارٍ تحديد الموقع...</span>';
-      navigator.geolocation.getCurrentPosition(
-        pos => {
-          useGpsBtn.disabled = false; useGpsBtn.innerHTML = gpsBtnOrig;
-          const { latitude, longitude } = pos.coords;
-          if (mapInstance) {
-            mapInstance.setView([latitude, longitude], 15);
-            userMarker.setLatLng([latitude, longitude]);
-            onLocationChanged(latitude, longitude);
-          }
-          const ranked = stores.map(s => ({ ...s, distance: haversineKm(latitude, longitude, s.lat, s.lng) }))
-                              .sort((a,b) => a.distance - b.distance);
-          const nearest = ranked[0];
-          saveSelection({
-            lat: latitude, lng: longitude,
-            accuracy: Math.round(pos.coords.accuracy),
-            storeId: nearest.id, storeName: nearest.name,
-            distance: +nearest.distance.toFixed(2),
-            source: 'auto'
-          });
-        },
-        err => {
-          useGpsBtn.disabled = false; useGpsBtn.innerHTML = gpsBtnOrig;
-          alert('تعذّر تحديد الموقع: ' + (err.message || err.code));
-        },
-        { enableHighAccuracy: true, timeout: 10000 }
-      );
-    });
-
-    document.getElementById('recenterBtn').addEventListener('click', () => {
-      if (!mapInstance || !userMarker) return;
-      mapInstance.setView(userMarker.getLatLng(), 15);
-    });
-
-    /* ── Save button ──────────────────────────────────────────── */
-    const saveBtn = document.getElementById('saveBtn');
-    const saveContent = document.getElementById('saveContent');
-    let saved = false;
-
-    function getCurrentAddress() {
-      return {
-        city:     document.getElementById('addrCity').value.trim(),
-        district: document.getElementById('addrDistrict').value.trim(),
-        street:   document.getElementById('addrStreet').value.trim(),
-        building: document.getElementById('addrBuilding').value.trim(),
-        postCode: document.getElementById('addrPostCode').value.trim(),
-        lat:      document.getElementById('addrLat').value.trim(),
-        lng:      document.getElementById('addrLng').value.trim(),
-        full:     document.getElementById('addrFull').value.trim()
-      };
-    }
-
-    function updateSaveButton() {
-      const addr = getCurrentAddress();
-      const hasAddr = addr.city && addr.district && addr.street;
-      saveBtn.disabled = false;
-      saveBtn.classList.remove('success');
-      if (!hasAddr) {
-        saveBtn.disabled = true;
-        saveContent.innerHTML = 'أكمل تفاصيل العنوان أولاً';
-      } else if (locationMatch.status === 'block') {
-        saveBtn.disabled = true;
-        saveContent.innerHTML = '❌ لا يمكن الحفظ — راجع الرمز';
-      } else if (saved) {
-        saveBtn.classList.add('success');
-        saveContent.innerHTML = CHECK_ICON + 'تم الحفظ بنجاح';
-      } else {
-        saveContent.innerHTML = 'حفظ العنوان والمتابعة';
-      }
-    }
-
-    saveBtn.addEventListener('click', () => {
-      if (locationMatch.status === 'block') {
-        alert('❌ لا يمكن إكمال الطلب — الفرق بين موقعك والعنوان كبير.');
-        return;
-      }
-      const sel = loadSelection();
-      const addr = getCurrentAddress();
-      const code = (resolvedAddress && resolvedAddress.code) || '(يدوي)';
-      const matchInfo = locationMatch.status === 'ok'
-        ? `✅ تطابق ممتاز (${Math.round(locationMatch.distance*1000)}م)`
-        : locationMatch.status === 'warn'
-        ? `⚠️ فرق ${locationMatch.distance.toFixed(2)} كم — مقبول`
-        : 'غير مفحوص';
-      alert(
-        '✓ تم حفظ العنوان بنجاح (محاكاة)\n\n' +
-        (sel ? `الفرع: ${sel.storeName} (${sel.storeId})\n` : '') +
-        `الرمز الوطني: ${code}\n` +
-        `العنوان: ${addr.full}\n` +
-        `المدينة/الحي/الشارع: ${addr.city} / ${addr.district} / ${addr.street}\n` +
-        `الإحداثيات: ${addr.lat || '—'}, ${addr.lng || '—'}\n` +
-        `تطابق الموقع: ${matchInfo}\n\n` +
-        '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
-      );
-      saved = true;
-      updateSaveButton();
-    });
-
-    ['addrCity','addrDistrict','addrStreet','addrBuilding','addrPostCode','addrLat','addrLng','addrFull']
-      .forEach(id => document.getElementById(id)?.addEventListener('input', updateSaveButton));
-    updateSaveButton();
-
-    /* ── Developer Mode ───────────────────────────────────────── */
-    const devToggle = document.getElementById('devToggle');
-    const devPanel  = document.getElementById('devPanel');
-    const devClose  = document.getElementById('devClose');
-    const devPlaceholder = document.getElementById('devPlaceholder');
-    const devContent = document.getElementById('devContent');
-    devToggle.addEventListener('click', () => devPanel.classList.add('open'));
-    devClose .addEventListener('click', () => devPanel.classList.remove('open'));
-    document.addEventListener('keydown', e => { if (e.key === 'Escape') devPanel.classList.remove('open'); });
-
-    function devFmt(n, p=6) {
-      if (n == null || Number.isNaN(n)) return '—';
-      return Number(n).toFixed(p);
-    }
-    function updateDevPanel() {
-      if (!resolvedAddress || !resolvedAddress.ok) {
-        devPlaceholder.style.display = 'block';
-        devContent.style.display = 'none';
-        return;
-      }
-      const sel = loadSelection();
-      const gpsLat = sel && sel.lat != null ? sel.lat : null;
-      const gpsLng = sel && sel.lng != null ? sel.lng : null;
-      let calc = null;
-      if (gpsLat !== null && gpsLng !== null) {
-        const dLat = (resolvedAddress.lat - gpsLat) * Math.PI/180;
-        const dLng = (resolvedAddress.lng - gpsLng) * Math.PI/180;
-        const a = Math.sin(dLat/2)**2 + Math.cos(gpsLat*Math.PI/180)*Math.cos(resolvedAddress.lat*Math.PI/180)*Math.sin(dLng/2)**2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-        const d = 6371 * c;
-        calc = { dLat, dLng, a, c, d };
-      }
-      const status = locationMatch.status;
-      const dc = status==='ok'?'ok':status==='warn'?'warn':status==='block'?'block':'ok';
-
-      devContent.innerHTML = `
-        <div class="dev-section"><div class="step-label">STEP 1</div><div class="step-title">User input</div>
-          <div class="step-content"><span class="dev-var">shortaddress</span> = <span class="dev-val">"${resolvedAddress.code}"</span></div>
-        </div>
-        <div class="dev-section"><div class="step-label">STEP 2</div><div class="step-title">Frontend → Vercel proxy</div>
-          <div class="step-content"><span class="dev-var">GET</span> <span class="api-url">/api/national-address?shortaddress=${resolvedAddress.code}&amp;language=A</span></div>
-        </div>
-        <div class="dev-section"><div class="step-label">STEP 3</div><div class="step-title">Proxy → Sebl (key stays server-side)</div>
-          <div class="step-content"><span class="dev-var">GET</span> <span class="api-url">https://apina.address.gov.sa/.../FullNAByShortAddress?...</span><br><br>Header: <span class="dev-var">Ocp-Apim-Subscription-Key</span> = <span class="dev-val">[env.SEBL_API_KEY]</span> 🔒</div>
-        </div>
-        <div class="dev-section"><div class="step-label">STEP 4</div><div class="step-title">Normalized response</div>
-          <div class="step-content" style="white-space:pre-wrap;font-size:11px;">${JSON.stringify({
-            shortAddress: resolvedAddress.code,
-            latitude: resolvedAddress.lat,
-            longitude: resolvedAddress.lng,
-            building: resolvedAddress.building,
-            postCode: resolvedAddress.postCode,
-            ar: { city: resolvedAddress.city, district: resolvedAddress.district, street: resolvedAddress.street }
-          }, null, 2)}</div>
-        </div>
-        ${gpsLat === null ? `
-          <div class="dev-section"><div class="step-label">STEP 5</div><div class="step-title">Match check — skipped</div>
-            <div class="dev-decision ok">No GPS in sessionStorage → validation skipped.</div></div>` : `
-          <div class="dev-section"><div class="step-label">STEP 5</div><div class="step-title">Haversine(GPS, Sebl)</div>
-            <div class="step-content">
-              <span class="dev-var">lat</span><sub>gps</sub>  = <span class="dev-val">${devFmt(gpsLat)}</span><br>
-              <span class="dev-var">lng</span><sub>gps</sub>  = <span class="dev-val">${devFmt(gpsLng)}</span><br>
-              <span class="dev-var">lat</span><sub>sebl</sub> = <span class="dev-val">${devFmt(resolvedAddress.lat)}</span><br>
-              <span class="dev-var">lng</span><sub>sebl</sub> = <span class="dev-val">${devFmt(resolvedAddress.lng)}</span>
-            </div>
-            <table class="dev-table" style="margin-top:8px;">
-              <thead><tr><th>Δlat</th><th>Δlng</th><th>a</th><th>c</th><th>d (km)</th></tr></thead>
-              <tbody><tr><td>${devFmt(calc.dLat,6)}</td><td>${devFmt(calc.dLng,6)}</td><td>${calc.a.toExponential(3)}</td><td>${devFmt(calc.c,6)}</td><td><strong>${devFmt(calc.d,4)}</strong></td></tr></tbody>
-            </table>
-          </div>
-          <div class="dev-section"><div class="step-label">STEP 6</div><div class="step-title">Decision tree</div>
-            <div class="step-content">
-              if d ≤ <span class="dev-var">${MATCH_OK_KM}</span> km → ✅ ok<br>
-              else if d ≤ <span class="dev-var">${MATCH_BLOCK_KM}</span> km → ⚠️ warn<br>
-              else → ❌ block
-            </div>
-            <div class="dev-decision ${dc}" style="margin-top:8px;">d = ${devFmt(calc.d,4)} km → <strong>${status.toUpperCase()}</strong></div>
-          </div>`}
-      `;
-      devPlaceholder.style.display = 'none';
-      devContent.style.display = 'block';
-    }
+    ensureMap();
   </script>
 </body>
 </html>
