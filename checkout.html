@@ -3,445 +3,593 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>الدفع | أقرب مخزن إليك</title>
+  <title>إضافة عنوان جديد | Nearest Store Finder</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Arabic:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+        crossorigin="" />
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --red: #d62828;
-      --red-dark: #b21f1f;
-      --bg: #f7f7f7;
-      --text: #222;
-      --muted: #666;
-      --card: #ffffff;
-      --border: #e5e5e5;
-      --green: #2a9d8f;
-      --shadow: 0 2px 12px rgba(0,0,0,0.06);
+      --bg-page:   #f3f4f6;
+      --bg-card:   #ffffff;
+      --bg-soft:   #f9fafb;
+      --bg-softer: #f3f4f6;
+      --border:    #e5e7eb;
+      --border-2:  #f3f4f6;
+      --text-1:    #111827;
+      --text-2:    #6b7280;
+      --text-3:    #9ca3af;
+      --text-muted:#a1a1aa;
+      --blue-400:  #60a5fa;
+      --blue-500:  #3b82f6;
+      --blue-600:  #2563eb;
+      --blue-700:  #1d4ed8;
+      --blue-50:   #eff6ff;
+      --blue-100:  #dbeafe;
+      --green-500: #22c55e;
+      --green-600: #16a34a;
+      --green-700: #15803d;
+      --pink-50:   #fff0f4;
+      --pink-500:  #e8396a;
+      --pink-300:  #fca5a5;
+      --amber-50:  #fffbeb;
+      --amber-100: #fef3c7;
+      --amber-500: #f59e0b;
+      --amber-800: #92400e;
+      --red-50:    #fef2f2;
+      --red-500:   #ef4444;
+      --red-700:   #b91c1c;
+      --gray-900:  #111827;
+      --gray-800:  #1f2937;
     }
 
     html, body {
-      font-family: "Segoe UI", Tahoma, "Cairo", Arial, sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      line-height: 1.6;
-      min-height: 100vh;
+      height: 100%;
+      font-family: 'Noto Sans Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
+      background: var(--bg-page);
+      color: var(--text-1);
+      line-height: 1.5;
+      font-size: 14px;
+      -webkit-font-smoothing: antialiased;
     }
 
-    /* الشريط العلوي */
+    a { color: inherit; text-decoration: none; }
+    button { font-family: inherit; cursor: pointer; }
+
+    /* Topbar — لا داعي للقصر، بسيط */
     .topbar {
-      background: #000; color: #fff; font-size: 14px;
-      padding: 10px 24px;
-      display: flex; align-items: center; gap: 28px;
+      background: #000; color: #fff; font-size: 13px;
+      padding: 9px 18px;
+      display: flex; align-items: center; gap: 22px;
       flex-wrap: wrap;
     }
-    .topbar a { color: #fff; text-decoration: none; cursor: pointer; }
-    .topbar a:hover { opacity: 0.8; }
-    .topbar .ship-to {
-      display: inline-flex; align-items: center; gap: 6px;
-    }
+    .topbar a { color: #fff; }
+    .topbar a:hover { opacity: 0.85; }
 
-    /* الهيدر */
-    .header {
-      background: #fff;
-      padding: 20px 24px;
-      border-bottom: 1px solid var(--border);
-      display: flex; justify-content: space-between; align-items: center;
-      gap: 20px; flex-wrap: wrap;
-    }
-    .logo {
-      font-size: 28px; font-weight: 800; color: var(--red);
-      letter-spacing: 0.5px;
-    }
-    .logo small {
-      display: block; font-size: 11px; color: var(--muted);
-      font-weight: 400; letter-spacing: 2px;
-    }
-    .back-link {
-      color: var(--muted); text-decoration: none; font-size: 14px;
-      display: inline-flex; align-items: center; gap: 6px;
-    }
-    .back-link:hover { color: var(--red); }
-
-    /* مسار التنقل */
-    .breadcrumb {
-      max-width: 1200px;
-      margin: 16px auto 0;
-      padding: 0 16px;
-      font-size: 13px; color: var(--muted);
-    }
-    .breadcrumb a { color: var(--muted); text-decoration: none; }
-    .breadcrumb a:hover { color: var(--red); }
-    .breadcrumb .sep { margin: 0 6px; }
-
-    /* تخطيط الصفحة */
-    .checkout-wrap {
-      max-width: 1200px;
-      margin: 20px auto 40px;
-      padding: 0 16px;
-      display: grid;
-      grid-template-columns: 1fr 380px;
-      gap: 24px;
+    /* Page wrapper */
+    .page {
+      min-height: calc(100vh - 36px);
+      display: flex; align-items: flex-start; justify-content: center;
+      padding: 24px;
     }
     @media (max-width: 900px) {
-      .checkout-wrap { grid-template-columns: 1fr; }
+      .page { padding: 0; }
     }
 
-    .main-col, .sidebar-col { display: flex; flex-direction: column; gap: 16px; }
-
-    .card {
-      background: var(--card);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: var(--shadow);
-    }
-    .card h2 {
-      font-size: 18px; margin-bottom: 14px;
-      display: flex; align-items: center; gap: 8px;
-    }
-    .card h2 .num {
-      width: 28px; height: 28px; border-radius: 50%;
-      background: var(--red); color: #fff;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 14px; font-weight: 700;
-    }
-
-    /* بطاقة المخزن (التعبئة التلقائية) */
-    .store-card {
-      background: linear-gradient(135deg, #e6f7f1, #c8ebdf);
-      border-right: 4px solid var(--green);
-      border-radius: 8px;
-      padding: 18px;
-    }
-    .store-card .label {
-      font-size: 13px; color: #0e7c5b; margin-bottom: 6px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .store-card .label .check {
-      width: 18px; height: 18px; border-radius: 50%;
-      background: var(--green); color: #fff;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-size: 11px;
-    }
-    .store-card .store-name {
-      font-size: 18px; font-weight: 800; color: #0e7c5b;
-      margin-bottom: 2px;
-    }
-    .store-card .store-meta {
-      font-size: 13px; color: #2a9d8f;
-    }
-    .store-card .auto-tag {
-      display: inline-block;
-      background: rgba(42, 157, 143, 0.15);
-      color: #0e7c5b;
-      font-size: 11px; font-weight: 600;
-      padding: 3px 10px; border-radius: 12px;
-      margin-top: 8px;
-    }
-
-    /* لا يوجد مخزن محفوظ */
-    .empty-card {
-      background: #fff5e6;
-      border-right: 4px solid #f59e0b;
-      padding: 18px; border-radius: 8px;
-    }
-    .empty-card h3 {
-      color: #92400e; margin-bottom: 6px; font-size: 16px;
-    }
-    .empty-card p {
-      color: #78350f; font-size: 14px; margin-bottom: 12px;
-    }
-    .empty-card a {
-      display: inline-block;
-      background: #f59e0b; color: #fff;
-      padding: 10px 18px; border-radius: 6px;
-      text-decoration: none; font-weight: 600; font-size: 14px;
-    }
-    .empty-card .inline-select {
-      margin-top: 12px;
-    }
-    .empty-card label {
-      display: block; font-size: 13px; margin-bottom: 6px; color: #78350f;
-    }
-    .empty-card select {
-      width: 100%; padding: 10px;
-      border: 1px solid #fde68a; border-radius: 6px;
-      background: #fff; font-family: inherit;
-    }
-
-    /* ===== تبويبات اختيار طريقة العنوان: كود / خريطة ===== */
-    .addr-tabs {
-      display: flex; gap: 6px; margin-bottom: 14px;
-      background: #f0f0f0; padding: 4px; border-radius: 10px;
-    }
-    .addr-tab {
-      flex: 1; text-align: center;
-      padding: 10px 8px; border: none; cursor: pointer;
-      background: transparent; border-radius: 8px;
-      font-family: inherit; font-size: 14px; font-weight: 700;
-      color: var(--muted); transition: all 0.15s ease;
-    }
-    .addr-tab.active {
-      background: #fff; color: var(--text);
-      box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-    }
-    .addr-panel { display: none; }
-    .addr-panel.active { display: block; }
-
-    /* ===== خريطة العنوان الوطني ===== */
-    #naMap {
-      width: 100%; height: 380px;
-      border: 1px solid var(--border); border-radius: 10px;
-      background: #eef1f4; overflow: hidden;
-    }
-    .map-search {
-      width: 100%; padding: 11px 14px; margin-bottom: 8px;
-      border: 1px solid var(--border); border-radius: 8px;
-      font-size: 14px; font-family: inherit;
-    }
-    .map-search:focus { outline: none; border-color: var(--red); }
-    .locate-btn {
-      width: 100%; padding: 11px 14px; margin-bottom: 8px;
-      background: #fff; color: var(--text);
-      border: 1px solid var(--border); border-radius: 8px;
-      font-family: inherit; font-size: 14px; font-weight: 700;
-      cursor: pointer; transition: all 0.15s ease;
-    }
-    .locate-btn:hover { border-color: var(--red); color: var(--red); }
-    .locate-btn:disabled { opacity: 0.6; cursor: wait; }
-    .map-hint {
-      font-size: 12px; color: var(--muted);
-      margin: 8px 0 4px;
-    }
-    .map-status {
-      font-size: 13px; padding: 10px 14px; border-radius: 8px;
-      margin-bottom: 10px; display: none;
-    }
-    .map-status.show { display: block; }
-    .map-status.load { background: #f5f5f5; border: 1px solid #e0e0e0; color: #666; }
-    .map-status.ok   { background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c; }
-    .map-status.err  { background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c; }
-    /* زر تأكيد الموقع وقراءة العنوان */
-    .get-addr-btn {
-      width: 100%; margin-top: 10px; padding: 13px;
-      background: #1a73e8; color: #fff; border: none; border-radius: 8px;
-      font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
-      box-shadow: 0 2px 8px rgba(26,115,232,0.3); transition: all 0.15s ease;
-    }
-    .get-addr-btn:hover { background: #1666cf; }
-    .get-addr-btn:active { transform: translateY(1px); }
-    .get-addr-btn:disabled { background: #9bbef0; cursor: not-allowed; box-shadow: none; }
-
-    /* نموذج سبل */
-    .sebl-row {
-      display: flex; gap: 8px; margin-bottom: 8px;
-    }
-    .sebl-row input {
-      flex: 1; padding: 12px 14px;
-      border: 1px solid var(--border); border-radius: 8px;
-      font-size: 15px; font-family: inherit;
-      direction: ltr; text-align: right;
-      text-transform: uppercase;
-    }
-    .sebl-row input:focus {
-      outline: none; border-color: var(--red);
-    }
-    .sebl-row button {
-      background: #111; color: #fff;
-      border: none; padding: 0 18px;
-      border-radius: 8px; font-weight: 700;
-      cursor: pointer; font-family: inherit;
-      font-size: 14px; white-space: nowrap;
-    }
-    .sebl-row button:hover { background: #000; }
-    .sebl-row button:disabled { background: #999; cursor: wait; }
-    .sebl-row button .spinner {
-      display: inline-block;
-      width: 12px; height: 12px;
-      border: 2px solid #fff;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      vertical-align: middle;
-      margin-left: 4px;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    /* حقل تم تعبئته تلقائياً من سبل — وميض بسيط للفت الانتباه */
-    @keyframes flashFill {
-      0%   { background: #fff9c4; }
-      100% { background: #fff; }
-    }
-    .auto-filled {
-      animation: flashFill 1.2s ease-out;
-    }
-    .field-source-tag {
-      display: inline-block;
-      background: #e6f7f1;
-      color: #0e7c5b;
-      font-size: 10px;
-      font-weight: 700;
-      padding: 2px 8px;
-      border-radius: 8px;
-      margin-right: 6px;
-    }
-    .field-source-tag.empty {
-      background: #f0f0f0;
-      color: #888;
-    }
-    .coords-input {
-      direction: ltr;
-      text-align: left;
-      font-family: "Consolas", monospace;
-    }
-
-    /* ===== فحص تطابق الموقع (GPS vs Sebl) ===== */
-    .match-check {
-      margin-top: 16px;
-      padding: 14px 16px;
-      border-radius: 8px;
-      border: 1px solid;
-      display: none;
-    }
-    .match-check.show { display: block; }
-    .match-check.ok {
-      background: #e6f7f1;
-      border-color: #a7e0d0;
-      color: #0e7c5b;
-    }
-    .match-check.warn {
-      background: #fff8e1;
-      border-color: #ffe082;
-      color: #856404;
-    }
-    .match-check.block {
-      background: #fde8e8;
-      border-color: #f5b5b5;
-      color: #9b1c1c;
-    }
-    .match-check .title {
-      font-weight: 800; font-size: 14px;
-      margin-bottom: 8px;
-      display: flex; align-items: center; gap: 6px;
-    }
-    .match-check .row {
-      display: flex; justify-content: space-between;
-      font-size: 12px; padding: 2px 0;
-      font-family: "Consolas", monospace;
-    }
-    .match-check .row span:first-child { font-family: inherit; opacity: 0.85; }
-    .match-check .distance-big {
-      font-size: 22px; font-weight: 800;
-      margin-top: 6px;
-    }
-    .match-check .msg {
-      margin-top: 8px; font-size: 13px;
-      font-family: inherit;
-      line-height: 1.5;
-    }
-    .sebl-hint {
-      font-size: 12px; color: var(--muted);
-      margin-top: 4px;
-    }
-    .sebl-result {
-      margin-top: 14px; padding: 14px 16px;
-      border-radius: 8px; font-size: 14px;
-      display: none;
-    }
-    .sebl-result.show { display: block; }
-    .sebl-result.ok {
-      background: #e7f3ff; border: 1px solid #c2dfff; color: #0a558c;
-    }
-    .sebl-result.err {
-      background: #fde8e8; border: 1px solid #f5b5b5; color: #9b1c1c;
-    }
-    .sebl-result .addr-line {
-      font-weight: 700; font-size: 15px; margin-top: 4px;
-    }
-    .sim-note {
-      background: #fef3c7; border: 1px solid #fde68a;
-      color: #78350f;
-      padding: 8px 12px; border-radius: 6px;
-      font-size: 12px; margin-top: 10px;
-    }
-
-    /* حقول العميل */
-    .form-grid {
+    /* Layout: کرت رئيسي + جانب الملخّص */
+    .layout {
+      width: 100%;
+      max-width: 1240px;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+      align-items: start;
     }
-    .form-grid .full { grid-column: span 2; }
-    @media (max-width: 600px) {
-      .form-grid { grid-template-columns: 1fr; }
-      .form-grid .full { grid-column: span 1; }
+    @media (max-width: 1100px) {
+      .layout { grid-template-columns: 1fr; }
     }
-    .form-group label {
-      display: block; font-size: 13px; margin-bottom: 4px; color: var(--text);
-    }
-    .form-group input, .form-group textarea {
-      width: 100%; padding: 10px 12px;
-      border: 1px solid var(--border); border-radius: 6px;
-      font-size: 14px; font-family: inherit; background: #fafafa;
-    }
-    .form-group input:focus, .form-group textarea:focus {
-      outline: none; border-color: var(--red); background: #fff;
-    }
-    .form-group textarea { min-height: 70px; resize: vertical; }
 
-    /* ملخص الطلب (sidebar) */
-    .summary-card { position: sticky; top: 16px; }
+    /* ── Modern Address Picker card ── */
+    .picker {
+      background: var(--bg-card);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.18);
+      overflow: hidden;
+      display: flex;
+      flex-direction: row;
+      min-height: 760px;
+    }
+    @media (max-width: 900px) {
+      .picker {
+        flex-direction: column;
+        border-radius: 0;
+        box-shadow: none;
+        min-height: 100vh;
+      }
+    }
+
+    /* الكولوم الأيسر (الخريطة) */
+    .picker-map-col {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Header داخل الكرت */
+    .picker-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 20px 18px 12px;
+      background: #fff;
+    }
+    .picker-header .close-btn,
+    .picker-header .arrow-btn {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--bg-softer);
+      border: none;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text-2);
+      transition: background 0.2s;
+    }
+    .picker-header .close-btn:hover,
+    .picker-header .arrow-btn:hover { background: var(--border); }
+    .picker-header .title-group {
+      display: flex; align-items: center; gap: 10px;
+    }
+    .picker-header h1 {
+      font-size: 15px; font-weight: 800; color: var(--text-1);
+      letter-spacing: -0.2px;
+    }
+
+    /* Search row */
+    .picker-search {
+      padding: 0 18px 12px;
+      background: #fff;
+    }
+    .search-input-wrap { position: relative; }
+    .search-input-wrap input {
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      padding: 12px 16px 12px 44px;
+      font-size: 14px;
+      color: var(--text-1);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+      direction: rtl;
+      text-align: right;
+    }
+    .search-input-wrap input::placeholder { color: var(--text-3); }
+    .search-input-wrap input:focus {
+      border-color: var(--blue-400);
+      box-shadow: 0 0 0 3px var(--blue-100);
+    }
+    .search-input-wrap button {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      background: transparent; border: none;
+      color: var(--text-3);
+      width: 28px; height: 28px;
+      display: inline-flex; align-items: center; justify-content: center;
+      transition: color 0.2s;
+    }
+    .search-input-wrap button:hover { color: var(--blue-500); }
+
+    .use-location-btn {
+      margin-top: 8px;
+      width: 100%;
+      display: flex; align-items: center; gap: 10px;
+      padding: 11px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border-2);
+      background: #fff;
+      color: var(--blue-600);
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s, border-color 0.2s, transform 0.1s;
+    }
+    .use-location-btn:hover {
+      background: var(--blue-50);
+      border-color: var(--blue-100);
+    }
+    .use-location-btn:active { transform: scale(0.99); }
+    .use-location-btn svg { color: var(--blue-600); flex-shrink: 0; transition: transform 0.2s; }
+    .use-location-btn:hover svg { transform: scale(1.08); }
+
+    /* Map */
+    .picker-map {
+      position: relative;
+      background: #e5ddd0;
+      flex: 1;
+      min-height: 320px;
+    }
+    .picker-map #map {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+    }
+    /* تخصيص علامات Leaflet */
+    .store-icon {
+      background: #ef4444;
+      color: #fff;
+      width: 28px; height: 28px;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      border: 2px solid #fff;
+    }
+    .store-icon span {
+      transform: rotate(45deg); font-size: 14px; font-weight: 700;
+    }
+    .store-icon.nearest { background: #22c55e; }
+    .user-pin-wrap {
+      pointer-events: auto;
+      transform: translateY(-22px);
+    }
+    .user-pin {
+      display: flex; flex-direction: column; align-items: center;
+    }
+    .pin-tooltip {
+      position: relative;
+      background: #1a1a1a;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.4);
+      margin-bottom: 8px;
+    }
+    .pin-tooltip::after {
+      content: '';
+      position: absolute;
+      left: 50%; bottom: -6px;
+      transform: translateX(-50%);
+      width: 0; height: 0;
+      border-left: 5px solid transparent;
+      border-right: 5px solid transparent;
+      border-top: 7px solid #1a1a1a;
+    }
+    .pin-shadow {
+      margin-top: 2px;
+      width: 16px; height: 4px;
+      background: rgba(0,0,0,0.25);
+      border-radius: 50%;
+      filter: blur(2px);
+    }
+
+    .map-fab {
+      position: absolute;
+      bottom: 12px; left: 12px;
+      width: 34px; height: 34px;
+      background: #fff;
+      border: 1px solid var(--border-2);
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--text-2);
+    }
+    .map-fab:hover { background: var(--bg-soft); }
+    .map-attribution {
+      position: absolute;
+      bottom: 4px; right: 6px;
+      font-size: 9px;
+      color: var(--text-2);
+      background: rgba(255,255,255,0.75);
+      padding: 1px 6px;
+      border-radius: 3px;
+    }
+
+    /* ── الكولوم الأيمن: لوحة العنوان ── */
+    .picker-panel {
+      width: 380px;
+      flex-shrink: 0;
+      background: #fff;
+      overflow-y: auto;
+      border-right: 1px solid var(--border-2);
+      max-height: 820px;
+    }
+    @media (max-width: 900px) {
+      .picker-panel {
+        width: 100%;
+        border-radius: 24px 24px 0 0;
+        margin-top: -20px;
+        z-index: 2;
+        box-shadow: 0 -6px 28px rgba(0,0,0,0.07);
+        position: relative;
+        max-height: none;
+      }
+    }
+    .picker-panel-inner {
+      padding: 20px 20px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    /* بطاقة الموقع */
+    .loc-card {
+      display: flex; gap: 12px;
+      padding: 12px;
+      background: var(--bg-soft);
+      border: 1px solid var(--border-2);
+      border-radius: 16px;
+      align-items: flex-start;
+    }
+    .loc-card .icon-box {
+      flex-shrink: 0;
+      width: 40px; height: 40px;
+      border-radius: 12px;
+      background: var(--pink-50);
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--pink-500);
+    }
+    .loc-card .loc-body { flex: 1; min-width: 0; }
+    .loc-card .loc-top {
+      display: flex; justify-content: space-between; gap: 8px;
+    }
+    .loc-card .loc-title {
+      font-size: 14px; font-weight: 700; color: var(--text-1);
+      line-height: 1.4;
+    }
+    .loc-card .loc-badge {
+      flex-shrink: 0;
+      font-size: 10px; font-weight: 700;
+      padding: 2px 8px; border-radius: 999px;
+      background: var(--pink-50); color: var(--pink-500);
+    }
+    .loc-card .loc-sub {
+      font-size: 12px; color: var(--text-3);
+      margin-top: 2px; line-height: 1.6;
+    }
+    .loc-card.confirmed .loc-sub { color: var(--green-600); font-weight: 500; }
+
+    /* أزرار رئيسية */
+    .primary-btn {
+      width: 100%; padding: 12px 16px;
+      border-radius: 16px; border: none;
+      color: #fff; font-size: 14px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      background: linear-gradient(135deg, var(--blue-600), var(--blue-700));
+      box-shadow: 0 4px 18px rgba(37, 99, 235, 0.28);
+      transition: transform 0.1s, opacity 0.15s;
+    }
+    .primary-btn:hover { opacity: 0.92; }
+    .primary-btn:active { transform: scale(0.985); }
+    .primary-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+    .primary-btn.confirmed,
+    .primary-btn.success {
+      background: linear-gradient(135deg, var(--green-600), var(--green-700));
+      box-shadow: 0 4px 18px rgba(22,163,74,0.28);
+    }
+    .primary-btn.dark,
+    .primary-btn.save {
+      background: linear-gradient(135deg, var(--gray-900), var(--gray-800));
+      box-shadow: 0 4px 18px rgba(17,24,39,0.28);
+    }
+    .primary-btn.dark.success {
+      background: linear-gradient(135deg, var(--green-600), var(--green-700));
+    }
+
+    /* فاصل */
+    .divider {
+      display: flex; align-items: center; gap: 12px;
+    }
+    .divider .line {
+      flex: 1; height: 1px; background: var(--border);
+    }
+    .divider .label {
+      font-size: 14px; font-weight: 700; color: var(--text-1);
+    }
+
+    /* Form grid */
+    .form-grid {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+    }
+    .form-grid .full { grid-column: 1 / -1; }
+    .form-field { display: flex; flex-direction: column; gap: 4px; }
+    .form-field label {
+      font-size: 11px; font-weight: 600; color: var(--text-2);
+      text-align: right;
+    }
+    .form-field input,
+    .form-field select,
+    .form-field textarea {
+      width: 100%;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: var(--bg-soft);
+      padding: 10px 14px;
+      font-size: 14px;
+      color: var(--text-1);
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+      direction: rtl; text-align: right;
+    }
+    .form-field input::placeholder,
+    .form-field textarea::placeholder { color: var(--text-3); }
+    .form-field input:focus,
+    .form-field select:focus,
+    .form-field textarea:focus {
+      border-color: var(--blue-400);
+      box-shadow: 0 0 0 3px var(--blue-100);
+      background: #fff;
+    }
+    .form-field textarea { resize: none; min-height: 60px; line-height: 1.6; }
+    .form-field .src-tag {
+      display: inline-block; vertical-align: middle;
+      font-size: 9px; font-weight: 700;
+      padding: 2px 7px; border-radius: 999px;
+      background: var(--bg-softer); color: var(--text-3);
+      margin-left: 4px;
+      transition: background 0.2s, color 0.2s;
+    }
+    .form-field .src-tag.filled {
+      background: #ecfdf5; color: #047857;
+    }
+    .form-field .src-tag.edited {
+      background: var(--amber-100); color: var(--amber-800);
+    }
+
+    /* الجوال — صف خاص بـ select + input */
+    .phone-row {
+      display: flex; gap: 8px; flex-direction: row-reverse;
+    }
+    .phone-row input {
+      flex: 1; direction: ltr; text-align: left;
+    }
+    .phone-row .phone-code-wrap {
+      position: relative; flex-shrink: 0;
+    }
+    .phone-row .phone-code-wrap select {
+      padding: 10px 12px 10px 30px;
+      appearance: none;
+      cursor: pointer;
+      font-weight: 500;
+    }
+    .phone-row .phone-code-wrap .chev {
+      position: absolute; left: 10px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-3); pointer-events: none;
+    }
+
+    /* select with custom chev */
+    .select-wrap { position: relative; }
+    .select-wrap select { padding-left: 36px; appearance: none; cursor: pointer; }
+    .select-wrap .chev {
+      position: absolute; left: 12px; top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-3); pointer-events: none;
+    }
+
+    /* Disclaimer / Match check banner */
+    .disclaimer {
+      display: flex; gap: 8px;
+      padding: 12px;
+      border-radius: 12px;
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      align-items: flex-start;
+    }
+    .disclaimer .ico {
+      color: var(--blue-400); flex-shrink: 0; margin-top: 1px;
+    }
+    .disclaimer .msg {
+      font-size: 12px; color: var(--blue-600);
+      line-height: 1.6;
+    }
+    .disclaimer.warn {
+      background: var(--amber-50); border-color: var(--amber-100);
+    }
+    .disclaimer.warn .ico { color: var(--amber-500); }
+    .disclaimer.warn .msg { color: var(--amber-800); }
+    .disclaimer.block {
+      background: var(--red-50); border-color: #fecaca;
+    }
+    .disclaimer.block .ico { color: var(--red-500); }
+    .disclaimer.block .msg { color: var(--red-700); }
+    .disclaimer.ok {
+      background: #ecfdf5; border-color: #a7f3d0;
+    }
+    .disclaimer.ok .ico { color: var(--green-600); }
+    .disclaimer.ok .msg { color: var(--green-700); }
+
+    /* ── شريط الفرع المُحدّد (أعلى الصفحة) ── */
+    .store-bar {
+      background: linear-gradient(135deg, #fff0f4, #ffe5ea);
+      border-bottom: 1px solid var(--pink-300);
+      padding: 12px 24px;
+      display: flex; align-items: center; gap: 12px;
+      flex-wrap: wrap;
+    }
+    .store-bar .lbl {
+      font-size: 12px; color: var(--pink-500); font-weight: 600;
+      display: inline-flex; align-items: center; gap: 4px;
+    }
+    .store-bar .name {
+      font-size: 14px; font-weight: 800; color: var(--gray-900);
+    }
+    .store-bar .auto-tag {
+      font-size: 10px; font-weight: 700;
+      padding: 3px 10px; border-radius: 999px;
+      background: #fff; color: var(--pink-500);
+      margin-right: auto;
+    }
+    .store-bar a {
+      font-size: 12px; color: var(--blue-600); font-weight: 600;
+    }
+    .store-bar a:hover { text-decoration: underline; }
+
+    /* ── ملخّص الطلب (Sidebar) ── */
+    .order-summary {
+      background: #fff;
+      border-radius: 24px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      padding: 22px;
+      position: sticky; top: 24px;
+    }
+    .order-summary h3 {
+      font-size: 16px; font-weight: 800; margin-bottom: 14px;
+      color: var(--gray-900);
+    }
     .summary-row {
       display: flex; justify-content: space-between;
-      padding: 8px 0; font-size: 14px;
+      padding: 8px 0; font-size: 13px;
       border-bottom: 1px dashed var(--border);
     }
     .summary-row:last-of-type { border-bottom: none; }
+    .summary-row span:first-child { color: var(--text-2); }
     .summary-row.total {
-      font-weight: 800; font-size: 18px;
-      color: var(--red); padding-top: 12px;
-      border-top: 2px solid #eee; border-bottom: none;
-      margin-top: 8px;
+      font-weight: 800; font-size: 17px;
+      color: var(--blue-600);
+      padding-top: 12px; margin-top: 6px;
+      border-top: 2px solid var(--border); border-bottom: none;
+    }
+    .summary-section-title {
+      font-size: 12px; color: var(--text-3); font-weight: 600;
+      margin: 14px 0 8px;
     }
 
-    /* ملخص نهائي (التحقّق) */
-    .final-summary {
-      background: #fff;
+    /* ── Status message (above match check) ── */
+    .sebl-result {
+      padding: 10px 14px;
       border-radius: 12px;
-      padding: 24px;
-      box-shadow: var(--shadow);
+      font-size: 13px;
       display: none;
     }
-    .final-summary.show { display: block; }
-    .final-summary h2 {
-      font-size: 18px; margin-bottom: 14px; color: var(--text);
-    }
-    .summary-pair {
-      display: flex; justify-content: space-between;
-      align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid var(--border);
-    }
-    .summary-pair:last-child { border-bottom: none; }
-    .summary-pair .k { color: var(--muted); font-size: 13px; }
-    .summary-pair .v { font-weight: 700; }
-    .summary-pair .v.store { color: var(--green); }
-    .summary-pair .v.addr  { color: var(--text); }
-
-    .btn-confirm {
-      display: block; width: 100%;
-      background: var(--red); color: #fff;
-      border: none; padding: 16px;
-      font-size: 16px; font-weight: 700;
-      border-radius: 8px;
-      cursor: pointer; font-family: inherit;
-      margin-top: 16px;
-      transition: background 0.2s;
-    }
-    .btn-confirm:hover { background: var(--red-dark); }
-    .btn-confirm:disabled {
-      background: #ccc; cursor: not-allowed;
+    .sebl-result.show { display: block; }
+    .sebl-result.loading { background: #f5f5f5; color: #666; border: 1px solid #e0e0e0; }
+    .sebl-result.ok { background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; }
+    .sebl-result.err { background: #fef2f2; color: #b91c1c; border: 1px solid #fecaca; }
+    .sebl-result .addr-line {
+      font-weight: 700; font-size: 14px; margin-top: 4px;
     }
 
-    /* ===== Developer Mode side panel (نفس تصميم الصفحة الرئيسية) ===== */
+    /* ── Spinner ── */
+    .spinner {
+      display: inline-block;
+      width: 12px; height: 12px;
+      border: 2px solid currentColor;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 4px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Developer Mode (LTR overlay) ── */
     .dev-toggle {
       position: fixed; left: 0; top: 50%;
       transform: translateY(-50%);
@@ -459,14 +607,11 @@
     }
     .dev-toggle:hover { background: #d62828; }
     .dev-toggle .dot {
-      display: inline-block;
-      width: 8px; height: 8px;
+      display: inline-block; width: 8px; height: 8px;
       border-radius: 50%; background: #4ade80;
-      margin-bottom: 6px;
-      animation: blink 1.5s infinite;
+      margin-bottom: 6px; animation: blink 1.5s infinite;
     }
     @keyframes blink { 50% { opacity: 0.3; } }
-
     .dev-panel {
       position: fixed; left: 0; top: 0; bottom: 0;
       width: 540px; max-width: 100vw;
@@ -481,42 +626,29 @@
       font-size: 13px;
     }
     .dev-panel.open { transform: translateX(0); }
-    .dev-panel .dev-header {
+    .dev-header {
       background: #000; padding: 14px 18px;
-      display: flex; justify-content: space-between;
-      align-items: center; border-bottom: 2px solid #333;
+      display: flex; justify-content: space-between; align-items: center;
+      border-bottom: 2px solid #333;
     }
-    .dev-panel .dev-title {
-      font-size: 14px; font-weight: 700; color: #4ade80;
+    .dev-title { font-size: 14px; font-weight: 700; color: #4ade80; }
+    .dev-close {
+      background: none; border: none; color: #e0e0e0;
+      font-size: 20px; cursor: pointer; padding: 4px 8px;
     }
-    .dev-panel .dev-close {
-      background: none; border: none;
-      color: #e0e0e0; font-size: 20px;
-      cursor: pointer; padding: 4px 8px;
-    }
-    .dev-panel .dev-close:hover { color: #d62828; }
     .dev-body { padding: 16px 18px; overflow-y: auto; flex: 1; }
     .dev-section { margin-bottom: 18px; }
-    .dev-section .step-label {
-      color: #4ade80; font-size: 11px; font-weight: 700;
-      letter-spacing: 1px; margin-bottom: 6px;
-    }
-    .dev-section .step-title {
-      color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 6px;
-    }
-    .dev-section .step-content {
+    .step-label { color: #4ade80; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-bottom: 6px; }
+    .step-title { color: #fff; font-size: 14px; font-weight: 700; margin-bottom: 6px; }
+    .step-content {
       background: #252525; padding: 10px 12px; border-radius: 4px;
       border-left: 3px solid #4ade80; line-height: 1.7;
       color: #d0d0d0; font-size: 12px;
     }
-    .dev-section .formula {
-      color: #fbbf24; font-family: "Cambria Math", "Consolas", serif; font-size: 13px;
-    }
-    .dev-section .var  { color: #60a5fa; font-weight: 700; }
-    .dev-section .val  { color: #f87171; }
-    .dev-section .api-url {
-      color: #a78bfa; word-break: break-all; font-size: 11px;
-    }
+    .formula { color: #fbbf24; font-family: "Cambria Math", "Consolas", serif; font-size: 13px; }
+    .var { color: #60a5fa; font-weight: 700; }
+    .val { color: #f87171; }
+    .api-url { color: #a78bfa; word-break: break-all; font-size: 11px; }
     .dev-table {
       width: 100%; border-collapse: collapse;
       font-size: 11px; margin-top: 4px;
@@ -525,10 +657,7 @@
       border: 1px solid #333; padding: 5px 6px; text-align: right;
       font-family: "Consolas", monospace;
     }
-    .dev-table th {
-      background: #2a2a2a; color: #4ade80;
-      font-size: 10px; font-weight: 700; text-align: center;
-    }
+    .dev-table th { background: #2a2a2a; color: #4ade80; font-size: 10px; font-weight: 700; text-align: center; }
     .dev-table td:first-child { text-align: center; color: #60a5fa; }
     .dev-decision {
       padding: 10px 12px; border-radius: 4px; font-weight: 700;
@@ -541,998 +670,805 @@
       text-align: center; padding: 30px 20px;
       color: #666; font-size: 13px; line-height: 1.6;
     }
+
     @media (max-width: 600px) {
       .dev-panel { width: 100vw; }
       .dev-toggle { padding: 10px 6px; font-size: 11px; }
-    }
-
-    .footer {
-      text-align: center; padding: 24px;
-      color: var(--muted); font-size: 13px;
-      border-top: 1px solid var(--border); background: #fff;
-      margin-top: 40px;
     }
   </style>
 </head>
 <body>
 
-  <!-- Developer Mode toggle -->
-  <button class="dev-toggle" id="devToggle" type="button" aria-label="Toggle developer mode">
-    <span class="dot"></span>
-    Developer Mode
-  </button>
-
-  <!-- Developer Mode side panel -->
-  <aside class="dev-panel" id="devPanel" aria-hidden="true">
-    <div class="dev-header">
-      <span class="dev-title">▼ DEVELOPER MODE — Checkout: Sebl + Match Check</span>
-      <button class="dev-close" id="devClose" type="button" aria-label="Close">✕</button>
-    </div>
-    <div class="dev-body" id="devBody">
-      <div class="dev-placeholder" id="devPlaceholder">
-        Enter a national-address code (e.g. <strong>RRRD3005</strong>)<br>
-        and click <strong>"الحصول على العنوان"</strong> to see<br>
-        the full backend flow + match verification here.
-      </div>
-      <div id="devContent" style="display:none;"></div>
-    </div>
-  </aside>
-
-  <!-- الشريط الأسود العلوي -->
+  <!-- Topbar -->
   <div class="topbar">
-    <span class="ship-to">
-      <span>📍</span>
-      <span>يشحن إلى: <strong id="topbarStore">—</strong></span>
-    </span>
+    <span>📍 يشحن إلى: <strong id="topbarStore">—</strong></span>
     <a href="index.html">الرئيسية</a>
     <a>الفروع</a>
     <a>الشكاوى والاقتراحات</a>
   </div>
 
-  <!-- الهيدر -->
-  <header class="header">
-    <a href="index.html" class="back-link">→ العودة للرئيسية</a>
-    <div class="logo">
-      المتجر
-      <small>STORE DEMO</small>
-    </div>
-  </header>
-
-  <!-- مسار التنقل -->
-  <nav class="breadcrumb">
-    <a href="index.html">الرئيسية</a>
-    <span class="sep">›</span>
-    <span>الدفع</span>
-  </nav>
-
-  <!-- المحتوى -->
-  <div class="checkout-wrap">
-
-    <!-- العمود الرئيسي -->
-    <div class="main-col">
-
-      <!-- 1) المخزن المختار (تعبئة تلقائية) -->
-      <div class="card">
-        <h2><span class="num">1</span> فرع التوصيل</h2>
-
-        <!-- يُعرض عند وجود اختيار محفوظ -->
-        <div class="store-card" id="storeCard" style="display:none;">
-          <div class="label">
-            <span class="check">✓</span>
-            <span>سيتم التوصيل من:</span>
-          </div>
-          <div class="store-name" id="storeName">—</div>
-          <div class="store-meta">رقم المخزن: <span id="storeId">—</span></div>
-          <span class="auto-tag" id="autoTag">⚡ تم تعبئته تلقائياً من موقعك</span>
-        </div>
-
-        <!-- يُعرض عند عدم وجود اختيار -->
-        <div class="empty-card" id="emptyCard" style="display:none;">
-          <h3>⚠️ لم نتعرّف على فرعك بعد</h3>
-          <p>لم تحدّد موقعك من الصفحة الرئيسية. يمكنك العودة لتحديده، أو اختيار منطقتك يدوياً هنا:</p>
-          <a href="index.html">→ العودة لتحديد الموقع</a>
-          <div class="inline-select">
-            <label for="manualStore">أو اختر منطقتك يدوياً:</label>
-            <select id="manualStore">
-              <option value="">-- اختر مخزناً --</option>
-              <option value="6015">مخزن الرياض - 6015</option>
-              <option value="6016">مخزن الرياض - 6016</option>
-              <option value="6014">مخزن الرياض - 6014</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      <!-- 2) العنوان (سبل + حقول قابلة للتعديل) -->
-      <div class="card">
-        <h2><span class="num">2</span> عنوان التوصيل</h2>
-
-        <!-- تبويبات: إدخال الكود أو الاختيار من الخريطة -->
-        <div class="addr-tabs">
-          <button type="button" class="addr-tab active" data-panel="code">📝 إدخال كود العنوان</button>
-          <button type="button" class="addr-tab" data-panel="map">🗺️ الاختيار من الخريطة</button>
-        </div>
-
-        <!-- لوحة 1: إدخال كود العنوان الوطني -->
-        <div class="addr-panel active" id="panelCode">
-          <!-- صف سبل -->
-          <div class="sebl-row">
-            <input type="text" id="seblInput"
-                   placeholder="مثال: RRRD3005"
-                   maxlength="8" />
-            <button id="seblBtn" type="button">الحصول على العنوان</button>
-          </div>
-          <p class="sebl-hint">
-            أدخل رمز عنوانك الوطني (4 أحرف + 4 أرقام) وستُعبّأ الحقول أدناه تلقائياً.
-          </p>
-        </div>
-
-        <!-- لوحة 2: تحديد الموقع من خريطة Google -->
-        <div class="addr-panel" id="panelMap">
-          <div class="map-status" id="mapStatus"></div>
-          <input type="text" id="mapSearch" class="map-search"
-                 placeholder="🔍 ابحث عن عنوان أو حي للقفز إليه..." />
-          <button type="button" id="locateBtn" class="locate-btn">📍 استخدم موقعي الحالي</button>
-          <p class="map-hint">حرّك الدبّوس أو انقر على موقعك، ثم اضغط «تأكيد الموقع وقراءة العنوان».</p>
-          <div id="naMap"></div>
-          <button type="button" id="confirmAddrBtn" class="get-addr-btn" disabled>✓ تأكيد الموقع وقراءة العنوان</button>
-        </div>
-
-        <div class="sebl-result" id="seblResult"></div>
-
-        <!-- بطاقة فحص تطابق الموقع: GPS vs Sebl -->
-        <div class="match-check" id="matchCheck">
-          <div class="title" id="matchTitle">—</div>
-          <div class="row"><span>إحداثيات GPS الخاصة بك</span> <span id="matchGps">—</span></div>
-          <div class="row"><span>إحداثيات العنوان من سبل</span> <span id="matchSebl">—</span></div>
-          <div class="distance-big" id="matchDistance">—</div>
-          <div class="msg" id="matchMsg"></div>
-        </div>
-
-        <p class="sim-note" id="seblModeNote" style="margin-bottom:16px;">
-          ✓ <strong>متصل بـ API سبل عبر باك إند آمن</strong> — الحقول التالية ستُعبّأ من
-          العنوان الوطني الفعلي، ويمكنك تعديل أي حقل قبل التأكيد.
-        </p>
-
-        <!-- حقول العنوان (تُعبّأ تلقائياً من سبل) -->
-        <div class="form-grid">
-          <div class="form-group full">
-            <label><span class="field-source-tag empty" data-tag="nationalCode">يدوي</span> رمز العنوان الوطني</label>
-            <input type="text" id="addrNationalCode" class="coords-input"
-                   placeholder="مثال: RBMA3761 (4 أحرف + 4 أرقام)" maxlength="8" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="city">يدوي</span> المدينة</label>
-            <input type="text" id="addrCity" placeholder="مثال: الرياض" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="district">يدوي</span> الحي</label>
-            <input type="text" id="addrDistrict" placeholder="مثال: العارض" />
-          </div>
-          <div class="form-group full">
-            <label><span class="field-source-tag empty" data-tag="street">يدوي</span> الشارع</label>
-            <input type="text" id="addrStreet" placeholder="مثال: سليمان بن مراد" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="building">يدوي</span> رقم المبنى</label>
-            <input type="text" id="addrBuilding" placeholder="مثال: 3005" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="postCode">يدوي</span> الرمز البريدي</label>
-            <input type="text" id="addrPostCode" placeholder="مثال: 13342" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="lat">يدوي</span> خط العرض (Latitude)</label>
-            <input type="text" id="addrLat" class="coords-input" placeholder="24.6740695" />
-          </div>
-          <div class="form-group">
-            <label><span class="field-source-tag empty" data-tag="lng">يدوي</span> خط الطول (Longitude)</label>
-            <input type="text" id="addrLng" class="coords-input" placeholder="46.6604273" />
-          </div>
-          <div class="form-group full">
-            <label>العنوان الكامل (Address Line)</label>
-            <textarea id="addrFull" placeholder="سيُعبّأ تلقائياً من سبل، أو اكتبه يدوياً."></textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- 3) معلومات العميل (اختيارية للنموذج) -->
-      <div class="card">
-        <h2><span class="num">3</span> بياناتك الشخصية</h2>
-        <div class="form-grid">
-          <div class="form-group">
-            <label>الاسم الأول</label>
-            <input type="text" id="firstName" placeholder="عبدالعزيز" />
-          </div>
-          <div class="form-group">
-            <label>اللقب</label>
-            <input type="text" id="lastName" placeholder="—" />
-          </div>
-          <div class="form-group full">
-            <label>البريد الإلكتروني</label>
-            <input type="email" id="email" placeholder="example@email.com" />
-          </div>
-          <div class="form-group full">
-            <label>رقم الجوال</label>
-            <input type="tel" id="phone" placeholder="05XXXXXXXX" />
-          </div>
-          <div class="form-group full">
-            <label>تفاصيل إضافية (اختياري)</label>
-            <textarea id="notes" placeholder="ملاحظات لشركة التوصيل..."></textarea>
-          </div>
-        </div>
-      </div>
-
-      <!-- 4) ملخّص نهائي للتأكّد -->
-      <div class="final-summary" id="finalSummary">
-        <h2>✓ ملخّص الطلب النهائي</h2>
-        <div class="summary-pair">
-          <span class="k">فرع التوصيل (تلقائي):</span>
-          <span class="v store" id="finalStore">—</span>
-        </div>
-        <div class="summary-pair">
-          <span class="k">رمز العنوان الوطني:</span>
-          <span class="v" id="finalCode">—</span>
-        </div>
-        <div class="summary-pair">
-          <span class="k">عنوان التسليم:</span>
-          <span class="v addr" id="finalAddr">—</span>
-        </div>
-        <button class="btn-confirm" id="placeOrderBtn">تأكيد الطلب</button>
-      </div>
-
-    </div>
-
-    <!-- العمود الجانبي: ملخّص الطلب -->
-    <aside class="sidebar-col">
-      <div class="card summary-card">
-        <h2>ملخّص الطلب</h2>
-        <div class="summary-row">
-          <span>المجموع الفرعي</span>
-          <span>33.91 ريال</span>
-        </div>
-        <div class="summary-row">
-          <span>الشحن (6 أيام عمل)</span>
-          <span>20.00 ريال</span>
-        </div>
-        <div class="summary-row">
-          <span>الضريبة</span>
-          <span>8.09 ريال</span>
-        </div>
-        <div class="summary-row total">
-          <span>الإجمالي</span>
-          <span>62.00 ريال</span>
-        </div>
-      </div>
-    </aside>
-
+  <!-- شريط الفرع المُحدّد -->
+  <div class="store-bar" id="storeBar" style="display:none;">
+    <span class="lbl">✓ سيتم التوصيل من:</span>
+    <span class="name" id="storeBarName">—</span>
+    <span class="auto-tag" id="storeBarTag">⚡ تلقائي</span>
+    <a href="index.html">تغيير الفرع</a>
+  </div>
+  <div class="store-bar" id="storeBarEmpty" style="display:none; background: linear-gradient(135deg,#fffbeb,#fef3c7); border-bottom-color:#fde68a;">
+    <span class="lbl" style="color:#92400e;">⚠️ لم يتم تحديد الفرع</span>
+    <a href="index.html" style="color:#92400e;">حدّد موقعك من الرئيسية أولاً</a>
   </div>
 
-  <footer class="footer">
-    نموذج أولي — صفحة Checkout محاكاة · للتجربة فقط
-  </footer>
+  <!-- Developer Mode -->
+  <button class="dev-toggle" id="devToggle" type="button" aria-label="Toggle developer mode">
+    <span class="dot"></span>
+    Developer Mode
+  </button>
+  <aside class="dev-panel" id="devPanel" aria-hidden="true">
+    <div class="dev-header">
+      <span class="dev-title">▼ DEVELOPER MODE — Checkout</span>
+      <button class="dev-close" id="devClose" type="button">✕</button>
+    </div>
+    <div class="dev-body">
+      <div class="dev-placeholder" id="devPlaceholder">
+        Enter a national-address code<br>
+        (e.g. <strong>RRRD3005</strong>) and click<br>
+        "تأكيد الموقع" to see the full flow here.
+      </div>
+      <div id="devContent" style="display:none;"></div>
+    </div>
+  </aside>
 
-  <!-- المنطق المشترك (stores, Haversine, save/load, محاكاة سبل) -->
+  <!-- Main page -->
+  <div class="page">
+    <div class="layout">
+
+      <!-- Address Picker Card -->
+      <div class="picker">
+
+        <!-- Map column -->
+        <div class="picker-map-col">
+
+          <!-- Header -->
+          <div class="picker-header">
+            <button class="close-btn" type="button" aria-label="إغلاق" onclick="window.location.href='index.html'">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+            <div class="title-group">
+              <h1>إضافة عنوان جديد</h1>
+              <button class="arrow-btn" type="button" aria-label="رجوع" onclick="window.location.href='index.html'">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Search (= Sebl input) -->
+          <div class="picker-search">
+            <div class="search-input-wrap">
+              <input type="text" id="seblInput"
+                     placeholder="ابحث برمز عنوانك الوطني (مثل: RRRD3005)"
+                     maxlength="8" autocomplete="off" />
+              <button type="button" id="seblBtn" aria-label="بحث">
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </button>
+            </div>
+            <button class="use-location-btn" type="button" id="useGpsBtn">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="#2563EB" stroke="#2563EB" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+              <span>استخدام موقعك الحالي</span>
+            </button>
+          </div>
+
+          <!-- Map -->
+          <div class="picker-map">
+            <div id="map"></div>
+            <button class="map-fab" type="button" id="recenterBtn" aria-label="إعادة التمركز">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+            </button>
+            <span class="map-attribution">© OpenStreetMap</span>
+          </div>
+        </div>
+
+        <!-- Panel column -->
+        <div class="picker-panel">
+          <div class="picker-panel-inner">
+
+            <!-- بطاقة الموقع -->
+            <div class="loc-card" id="locCard">
+              <div class="icon-box">
+                <svg width="19" height="19" viewBox="0 0 24 24" fill="#fca5a5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              </div>
+              <div class="loc-body">
+                <div class="loc-top">
+                  <p class="loc-title" id="locTitle">موقع محدد على الخريطة</p>
+                  <span class="loc-badge" id="locBadge">الموقع المحدد</span>
+                </div>
+                <p class="loc-sub" id="locSub">أدخل رمز العنوان الوطني واضغط "تأكيد الموقع" لجلب التفاصيل</p>
+              </div>
+            </div>
+
+            <!-- زر تأكيد الموقع -->
+            <button class="primary-btn" id="confirmBtn" type="button">
+              <span id="confirmIcon" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span id="confirmText">تأكيد الموقع</span>
+            </button>
+
+            <!-- نتيجة سبل (loading/error) -->
+            <div class="sebl-result" id="seblResult"></div>
+
+            <!-- فحص التطابق / disclaimer -->
+            <div class="disclaimer" id="matchBox" style="display:none;">
+              <div class="ico">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </div>
+              <div class="msg" id="matchMsg">—</div>
+            </div>
+
+            <!-- فاصل -->
+            <div class="divider">
+              <div class="line"></div>
+              <div class="label">تفاصيل العنوان</div>
+              <div class="line"></div>
+            </div>
+
+            <!-- Form -->
+            <div class="form-grid">
+              <div class="form-field full">
+                <label>رقم الوحدة / رقم المبنى <span class="src-tag" data-tag="building">يدوي</span></label>
+                <input type="text" id="addrBuilding" placeholder="مثال: 3005" />
+              </div>
+
+              <div class="form-field full">
+                <label>الاسم الكامل</label>
+                <input type="text" id="firstName" placeholder="عبدالعزيز" />
+              </div>
+
+              <div class="form-field full">
+                <label>عنوان البريد الإلكتروني</label>
+                <input type="email" id="email" placeholder="example@gmail.com" />
+              </div>
+
+              <div class="form-field full">
+                <label>رقم الجوال</label>
+                <div class="phone-row">
+                  <input type="tel" id="phone" placeholder="05XXXXXXXX" />
+                  <div class="phone-code-wrap">
+                    <select id="phoneCode">
+                      <option value="+966" selected>🇸🇦 +966</option>
+                      <option value="+971">🇦🇪 +971</option>
+                      <option value="+965">🇰🇼 +965</option>
+                      <option value="+973">🇧🇭 +973</option>
+                      <option value="+968">🇴🇲 +968</option>
+                      <option value="+974">🇶🇦 +974</option>
+                    </select>
+                    <span class="chev">
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label>المدينة <span class="src-tag" data-tag="city">يدوي</span></label>
+                <div class="select-wrap">
+                  <input type="text" id="addrCity" placeholder="الرياض" />
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label>الحي <span class="src-tag" data-tag="district">يدوي</span></label>
+                <input type="text" id="addrDistrict" placeholder="حي العارض" />
+              </div>
+
+              <div class="form-field full">
+                <label>الشارع <span class="src-tag" data-tag="street">يدوي</span></label>
+                <input type="text" id="addrStreet" placeholder="سليمان بن مراد" />
+              </div>
+
+              <div class="form-field">
+                <label>الرمز البريدي <span class="src-tag" data-tag="postCode">يدوي</span></label>
+                <input type="text" id="addrPostCode" placeholder="13342" />
+              </div>
+
+              <div class="form-field">
+                <label>الرقم الإضافي</label>
+                <input type="text" id="addrAdditional" placeholder="7221" />
+              </div>
+
+              <div class="form-field">
+                <label>خط العرض (Latitude) <span class="src-tag" data-tag="lat">يدوي</span></label>
+                <input type="text" id="addrLat" placeholder="24.674401" style="direction:ltr;text-align:left;font-family:Consolas,monospace;" />
+              </div>
+
+              <div class="form-field">
+                <label>خط الطول (Longitude) <span class="src-tag" data-tag="lng">يدوي</span></label>
+                <input type="text" id="addrLng" placeholder="46.660174" style="direction:ltr;text-align:left;font-family:Consolas,monospace;" />
+              </div>
+
+              <div class="form-field full">
+                <label>العنوان التفصيلي</label>
+                <textarea id="addrFull" rows="2" placeholder="العنوان التفصيلي"></textarea>
+              </div>
+            </div>
+
+            <!-- Disclaimer (Modern design uses Info icon banner) -->
+            <div class="disclaimer">
+              <div class="ico">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </div>
+              <p class="msg">تأكد من صحة العنوان قبل الحفظ. سيُستخدم لأغراض التوصيل.</p>
+            </div>
+
+            <!-- زر الحفظ -->
+            <button class="primary-btn dark" id="saveBtn" type="button">
+              <span id="saveIcon" style="display:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              </span>
+              <span id="saveText">حفظ العنوان والمتابعة</span>
+            </button>
+
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Order Summary Sidebar -->
+      <aside class="order-summary">
+        <h3>ملخّص الطلب</h3>
+        <div class="summary-row"><span>المجموع الفرعي</span><span>33.91 ريال</span></div>
+        <div class="summary-row"><span>الشحن (6 أيام عمل)</span><span>20.00 ريال</span></div>
+        <div class="summary-row"><span>الضريبة</span><span>8.09 ريال</span></div>
+        <div class="summary-row total"><span>الإجمالي</span><span>62.00 ريال</span></div>
+
+        <div class="summary-section-title">معلومات التسليم</div>
+        <div class="summary-row"><span>الفرع</span><span id="sumStore">—</span></div>
+        <div class="summary-row"><span>رمز العنوان</span><span id="sumCode">—</span></div>
+      </aside>
+
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+          crossorigin=""></script>
   <script src="app.js"></script>
   <script>
     /* ============================================================
-       منطق صفحة الـ Checkout
-       ------------------------------------------------------------
-       *** النقطة الجوهرية المراد إثباتها: ***
-       المخزن يُحسب مرّة واحدة في الصفحة الرئيسية من إحداثيات العميل
-       عبر Haversine، ويُمرَّر لهذه الصفحة كما هو (auto-fill).
-       العنوان النصي (من سبل) منفصل تماماً — لا يؤثر على اختيار
-       المخزن. نفس الإحداثية = نفس المخزن دائماً، وبالتالي:
-       لا يوجد تناقض ممكن بين الصفحتين.
-
-       *** نقاط الاستبدال في Magento الحقيقي: ***
-       - loadSelection() (sessionStorage) → Customer Session/Quote.
-       - simulateSebl()                   → API سبل الفعلي.
+       Checkout — Modern Address Picker
+       يحتفظ بكل المنطق السابق (Sebl, location match, dev mode)
        ============================================================ */
 
-    // ====== 1) تعبئة تلقائية للمخزن من sessionStorage ======
-    const selection = loadSelection(); // من app.js
-    const storeCard = document.getElementById('storeCard');
-    const emptyCard = document.getElementById('emptyCard');
+    // ── 1) تحميل اختيار المخزن من sessionStorage ────────────────
+    const selection = loadSelection();
+    const storeBar      = document.getElementById('storeBar');
+    const storeBarEmpty = document.getElementById('storeBarEmpty');
+    const storeBarName  = document.getElementById('storeBarName');
+    const storeBarTag   = document.getElementById('storeBarTag');
     const topbarStoreEl = document.getElementById('topbarStore');
-
-    function renderStoreCard(sel) {
-      document.getElementById('storeName').textContent = sel.storeName;
-      document.getElementById('storeId').textContent   = sel.storeId;
-      topbarStoreEl.textContent = sel.storeName;
-
-      // وسم المصدر: تلقائي vs يدوي
-      const tag = document.getElementById('autoTag');
-      if (sel.source === 'manual') {
-        tag.textContent = '✏️ اخترته يدوياً';
-        tag.style.background = 'rgba(212, 40, 40, 0.12)';
-        tag.style.color = '#9b1c1c';
-      } else {
-        tag.textContent = '⚡ تم تعبئته تلقائياً من موقعك';
-      }
-
-      storeCard.style.display = 'block';
-      emptyCard.style.display = 'none';
-    }
+    const sumStore      = document.getElementById('sumStore');
 
     if (selection && selection.storeId) {
-      renderStoreCard(selection);
+      storeBar.style.display = 'flex';
+      storeBarName.textContent = selection.storeName;
+      topbarStoreEl.textContent = selection.storeName;
+      sumStore.textContent = `${selection.storeName} (${selection.storeId})`;
+      storeBarTag.textContent = selection.source === 'manual' ? '✏️ يدوي' : '⚡ تلقائي';
     } else {
-      // لا توجد بيانات محفوظة — اعرض كرت بديل بخيار اختيار يدوي
-      storeCard.style.display = 'none';
-      emptyCard.style.display = 'block';
+      storeBarEmpty.style.display = 'flex';
       topbarStoreEl.textContent = 'لم يُحدَّد';
     }
 
-    // اختيار يدوي من داخل صفحة الـ checkout (إن دخل العميل مباشرة)
-    document.getElementById('manualStore').addEventListener('change', (e) => {
-      const id = parseInt(e.target.value, 10);
-      if (!id) return;
-      const store = getStoreById(id); // من app.js
-      if (!store) return;
-      const sel = {
-        lat: null, lng: null, accuracy: null,
-        storeId: store.id, storeName: store.name,
-        distance: null, source: 'manual'
-      };
-      saveSelection(sel);
-      renderStoreCard(sel);
-      updateFinalSummary();
-    });
+    // ── 2) الخريطة (Leaflet + OSM) ───────────────────────────────
+    let mapInstance = null;
+    let userMarker  = null;
+    const storeMarkers = [];
 
-    // ====== 2) استدعاء سبل الفعلي عبر الباك إند ======
-    const seblInput  = document.getElementById('seblInput');
-    const seblBtn    = document.getElementById('seblBtn');
-    const seblResult = document.getElementById('seblResult');
-    const seblBtnText = seblBtn.innerHTML;
-
-    let resolvedAddress = null; // العنوان الذي تم استخراجه من سبل
-
-    // خريطة: مفتاح الحقل في الرد ← element id + tag
-    const ADDRESS_FIELDS = [
-      { tag: 'nationalCode', id: 'addrNationalCode', getValue: r => r.code || '' },
-      { tag: 'city',     id: 'addrCity',     getValue: r => r.city },
-      { tag: 'district', id: 'addrDistrict', getValue: r => r.district },
-      { tag: 'street',   id: 'addrStreet',   getValue: r => r.street },
-      { tag: 'building', id: 'addrBuilding', getValue: r => r.building },
-      { tag: 'postCode', id: 'addrPostCode', getValue: r => r.postCode },
-      { tag: 'lat',      id: 'addrLat',      getValue: r => r.lat != null ? String(r.lat) : '' },
-      { tag: 'lng',      id: 'addrLng',      getValue: r => r.lng != null ? String(r.lng) : '' }
-    ];
-
-    // عبّئ الحقول من رد سبل/الخريطة وأبرزها بصرياً
-    function populateAddressFields(r, sourceLabel) {
-      sourceLabel = sourceLabel || 'من سبل';
-      ADDRESS_FIELDS.forEach(f => {
-        const el = document.getElementById(f.id);
-        if (!el) return;
-        const v = f.getValue(r) || '';
-        el.value = v;
-        // وميض مؤقت + تحديث وسم المصدر
-        el.classList.remove('auto-filled');
-        // إعادة التشغيل بإجبار reflow
-        void el.offsetWidth;
-        el.classList.add('auto-filled');
-        const tagEl = document.querySelector(`.field-source-tag[data-tag="${f.tag}"]`);
-        if (tagEl) {
-          tagEl.textContent = sourceLabel;
-          tagEl.style.background = '';
-          tagEl.style.color = '';
-          tagEl.classList.remove('empty');
-        }
+    function storeIcon(isNearest) {
+      return L.divIcon({
+        className: '', html: `<div class="store-icon ${isNearest?'nearest':''}"><span>🏬</span></div>`,
+        iconSize: [28,28], iconAnchor: [14,28]
       });
-      // العنوان الكامل
-      const fullEl = document.getElementById('addrFull');
-      if (fullEl) {
-        fullEl.value = r.address || '';
-        void fullEl.offsetWidth;
-        fullEl.classList.remove('auto-filled');
-        void fullEl.offsetWidth;
-        fullEl.classList.add('auto-filled');
-      }
+    }
+    function userIconLeaflet() {
+      return L.divIcon({
+        className: '',
+        html: `<div class="user-pin-wrap"><div class="user-pin">
+                 <div class="pin-tooltip" id="pinTooltip">العنوان هنا</div>
+                 <svg width="34" height="44" viewBox="0 0 34 44" fill="none">
+                   <path d="M17 0C7.611 0 0 7.611 0 17c0 12.15 17 27 17 27S34 29.15 34 17C34 7.611 26.389 0 17 0z" fill="#1a1a1a"/>
+                   <circle cx="17" cy="17" r="7" fill="white"/>
+                 </svg>
+                 <div class="pin-shadow"></div>
+               </div></div>`,
+        iconSize: [34,66], iconAnchor: [17, 56]
+      });
     }
 
-    /* ============================================================
-       فحص تطابق الموقع — GPS العميل vs إحداثيات سبل
-       ------------------------------------------------------------
-       - ≤ 1 كم: ✅ تطابق ممتاز
-       - 1 - 5 كم: ⚠️ تحذير لكن يمكن الإكمال
-       - > 5 كم: ❌ فرق كبير، نمنع إكمال الطلب
+    function initMap(centerLat, centerLng) {
+      if (mapInstance) {
+        userMarker && userMarker.setLatLng([centerLat, centerLng]);
+        return;
+      }
+      mapInstance = L.map('map', {
+        zoomControl: false, attributionControl: false
+      }).setView([centerLat, centerLng], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19
+      }).addTo(mapInstance);
 
-       منطقياً: لو فرق بسيط = GPS متذبذب قليلاً وهذا طبيعي.
-                لو فرق كبير = العميل أدخل رمز مكان آخر تماماً.
-       ============================================================ */
-    const MATCH_OK_KM    = 1;   // ضمن هذا المدى = تطابق ممتاز
-    const MATCH_BLOCK_KM = 5;   // أكثر من هذا = منع الطلب
+      // علامات المخازن
+      stores.forEach(s => {
+        const m = L.marker([s.lat, s.lng], { icon: storeIcon(false) })
+          .addTo(mapInstance)
+          .bindPopup(`<strong>${s.name}</strong><br>رقم: ${s.id}`);
+        storeMarkers.push({ id: s.id, marker: m });
+      });
 
-    const matchCheck    = document.getElementById('matchCheck');
-    const matchTitle    = document.getElementById('matchTitle');
-    const matchGps      = document.getElementById('matchGps');
-    const matchSebl     = document.getElementById('matchSebl');
-    const matchDistance = document.getElementById('matchDistance');
-    const matchMsg      = document.getElementById('matchMsg');
+      // علامة العميل قابلة للسحب
+      userMarker = L.marker([centerLat, centerLng], {
+        icon: userIconLeaflet(),
+        draggable: true
+      }).addTo(mapInstance);
+      userMarker.on('dragend', e => {
+        const ll = e.target.getLatLng();
+        onLocationChanged(ll.lat, ll.lng);
+      });
 
-    // متغيّر يحفظ نتيجة الفحص (يقرأها زر تأكيد الطلب)
-    let locationMatch = { status: 'unknown', distance: null };
+      // ابرز الأقرب
+      refreshNearestHighlight(centerLat, centerLng);
+    }
 
-    function runLocationMatchCheck(seblLat, seblLng) {
-      const sel = loadSelection(); // فيها lat/lng لو من Geolocation
+    function refreshNearestHighlight(lat, lng) {
+      let nearestId = null, minD = Infinity;
+      stores.forEach(s => {
+        const d = haversineKm(lat, lng, s.lat, s.lng);
+        if (d < minD) { minD = d; nearestId = s.id; }
+      });
+      storeMarkers.forEach(({id, marker}) => marker.setIcon(storeIcon(id === nearestId)));
+      return { nearestId, distance: minD };
+    }
+
+    function onLocationChanged(lat, lng) {
+      refreshNearestHighlight(lat, lng);
+      // لو الحقول lat/lng فارغة أو لم تُعدّل يدوياً، حدّثها
+      const latEl = document.getElementById('addrLat');
+      const lngEl = document.getElementById('addrLng');
+      latEl.value = lat.toFixed(6);
+      lngEl.value = lng.toFixed(6);
+      markSourceTag('lat', 'edited'); markSourceTag('lng', 'edited');
+    }
+
+    // إحداثيات افتراضية: لو فيه selection نستخدمها، وإلا الرياض
+    const defaultLat = (selection && selection.lat != null) ? selection.lat : 24.7136;
+    const defaultLng = (selection && selection.lng != null) ? selection.lng : 46.6753;
+    initMap(defaultLat, defaultLng);
+
+    // ── 3) Source tags helpers ───────────────────────────────────
+    function markSourceTag(tag, status) {
+      const el = document.querySelector(`.src-tag[data-tag="${tag}"]`);
+      if (!el) return;
+      el.classList.remove('filled', 'edited');
+      if (status === 'filled') {
+        el.textContent = 'من سبل';
+        el.classList.add('filled');
+      } else if (status === 'edited') {
+        el.textContent = 'تم تعديله';
+        el.classList.add('edited');
+      } else {
+        el.textContent = 'يدوي';
+      }
+    }
+    ['city','district','street','building','postCode','lat','lng'].forEach(tag => {
+      const idMap = { city:'addrCity', district:'addrDistrict', street:'addrStreet',
+                      building:'addrBuilding', postCode:'addrPostCode', lat:'addrLat', lng:'addrLng' };
+      const el = document.getElementById(idMap[tag]);
+      if (!el) return;
+      el.addEventListener('input', () => {
+        if (el.classList.contains('was-auto-filled')) markSourceTag(tag, 'edited');
+      });
+    });
+
+    // ── 4) Sebl lookup ───────────────────────────────────────────
+    const seblInput  = document.getElementById('seblInput');
+    const seblBtn    = document.getElementById('seblBtn');
+    const confirmBtn = document.getElementById('confirmBtn');
+    const confirmText= document.getElementById('confirmText');
+    const confirmIcon= document.getElementById('confirmIcon');
+    const seblResult = document.getElementById('seblResult');
+    const locTitle   = document.getElementById('locTitle');
+    const locSub     = document.getElementById('locSub');
+    const locBadge   = document.getElementById('locBadge');
+    const locCard    = document.getElementById('locCard');
+    const matchBox   = document.getElementById('matchBox');
+    const matchMsg   = document.getElementById('matchMsg');
+
+    let resolvedAddress = null;
+    let locationMatch   = { status: 'unknown', distance: null };
+
+    const MATCH_OK_KM    = 1;
+    const MATCH_BLOCK_KM = 5;
+
+    function showSeblResult(type, html) {
+      seblResult.className = 'sebl-result show ' + type;
+      seblResult.innerHTML = html;
+    }
+    function hideSeblResult() {
+      seblResult.className = 'sebl-result';
+      seblResult.innerHTML = '';
+    }
+
+    function populateAddressFromSebl(r) {
+      const fields = [
+        ['city','addrCity', r.city],
+        ['district','addrDistrict', r.district],
+        ['street','addrStreet', r.street],
+        ['building','addrBuilding', r.building],
+        ['postCode','addrPostCode', r.postCode],
+        ['lat','addrLat', r.lat != null ? String(r.lat) : ''],
+        ['lng','addrLng', r.lng != null ? String(r.lng) : ''],
+      ];
+      fields.forEach(([tag, id, val]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = val || '';
+        el.classList.add('was-auto-filled');
+        markSourceTag(tag, 'filled');
+      });
+      const addtl = document.getElementById('addrAdditional');
+      if (addtl) addtl.value = r.additionalNumber || '';
+      const full = document.getElementById('addrFull');
+      if (full) full.value = r.address || '';
+    }
+
+    function runMatchCheck(seblLat, seblLng) {
+      const sel = loadSelection();
       const gpsLat = sel && sel.lat != null ? sel.lat : null;
       const gpsLng = sel && sel.lng != null ? sel.lng : null;
 
-      // لو ما فيه GPS (اختيار يدوي للمخزن): تخطّ الفحص
       if (gpsLat === null || gpsLng === null) {
-        matchCheck.className = 'match-check show ok';
-        matchTitle.innerHTML = '✓ تخطّي الفحص — لا توجد إحداثيات GPS';
-        matchGps.textContent = 'غير متوفّر (اختيار يدوي)';
-        matchSebl.textContent = `${seblLat.toFixed(6)}, ${seblLng.toFixed(6)}`;
-        matchDistance.textContent = '—';
-        matchMsg.textContent = 'تم اختيار المخزن يدوياً — لا يمكن مقارنة الإحداثيات.';
+        matchBox.style.display = 'none';
         locationMatch = { status: 'skipped', distance: null };
         return;
       }
+      const d = haversineKm(gpsLat, gpsLng, seblLat, seblLng);
+      const dStr = d < 1 ? `${Math.round(d*1000)} متر` : `${d.toFixed(2)} كم`;
+      matchBox.style.display = 'flex';
+      matchBox.classList.remove('ok', 'warn', 'block');
 
-      // احسب المسافة بـ Haversine (موجودة في app.js)
-      const distKm = haversineKm(gpsLat, gpsLng, seblLat, seblLng);
-      const distM = Math.round(distKm * 1000);
-
-      matchGps.textContent  = `${gpsLat.toFixed(6)}, ${gpsLng.toFixed(6)}`;
-      matchSebl.textContent = `${seblLat.toFixed(6)}, ${seblLng.toFixed(6)}`;
-      matchDistance.textContent =
-        distKm < 1 ? `الفرق: ${distM} متر` : `الفرق: ${distKm.toFixed(2)} كم`;
-
-      matchCheck.classList.add('show');
-      matchCheck.classList.remove('ok', 'warn', 'block');
-
-      if (distKm <= MATCH_OK_KM) {
-        // تطابق ممتاز
-        matchCheck.classList.add('ok');
-        matchTitle.innerHTML = '✅ تطابق ممتاز — يمكن إكمال الطلب';
-        matchMsg.innerHTML =
-          'إحداثيات GPS الخاصة بك قريبة جداً من العنوان الذي أدخلته في سبل. ' +
-          'العميل في نفس الموقع تقريباً.';
-        locationMatch = { status: 'ok', distance: distKm };
-      } else if (distKm <= MATCH_BLOCK_KM) {
-        // تحذير — مسموح
-        matchCheck.classList.add('warn');
-        matchTitle.innerHTML = '⚠️ فرق متوسط — يمكنك الإكمال مع التحقّق';
-        matchMsg.innerHTML =
-          'هناك فرق <strong>' + distKm.toFixed(2) + ' كم</strong> بين موقعك الحالي وعنوان سبل. ' +
-          'قد يكون هذا طبيعياً لو أنت في مكان آخر مؤقتاً — تأكّد أن العنوان صحيح قبل التأكيد.';
-        locationMatch = { status: 'warn', distance: distKm };
+      if (d <= MATCH_OK_KM) {
+        matchBox.classList.add('ok');
+        matchMsg.innerHTML = `<strong>✅ تطابق ممتاز</strong> — الفرق ${dStr} بين موقعك وعنوان سبل.`;
+        locationMatch = { status: 'ok', distance: d };
+      } else if (d <= MATCH_BLOCK_KM) {
+        matchBox.classList.add('warn');
+        matchMsg.innerHTML = `<strong>⚠️ فرق متوسط</strong> — ${dStr} بين موقعك وعنوان سبل. تأكّد قبل الحفظ.`;
+        locationMatch = { status: 'warn', distance: d };
       } else {
-        // محظور
-        matchCheck.classList.add('block');
-        matchTitle.innerHTML = '❌ فرق كبير جداً — لا يمكن إكمال الطلب';
-        matchMsg.innerHTML =
-          'الفرق <strong>' + distKm.toFixed(2) + ' كم</strong> بين موقعك (GPS) والعنوان من سبل أكبر من ' +
-          MATCH_BLOCK_KM + ' كم. ' +
-          'تأكّد من صحة <strong>رمز العنوان الوطني</strong> الذي أدخلته، ' +
-          'أو أعد تحديد موقعك من <a href="index.html" style="color:inherit;text-decoration:underline;">الصفحة الرئيسية</a>.';
-        locationMatch = { status: 'block', distance: distKm };
+        matchBox.classList.add('block');
+        matchMsg.innerHTML = `<strong>❌ فرق كبير جداً</strong> — ${dStr} بين موقعك وعنوان سبل. لا يمكن إكمال الطلب. <a href="index.html" style="color:inherit;text-decoration:underline;">حدّد موقعك مجدداً</a>.`;
+        locationMatch = { status: 'block', distance: d };
       }
-      // حدّث حالة زر التأكيد + لوحة Developer Mode
-      updateFinalSummary();
-      if (typeof updateCheckoutDevPanel === 'function') updateCheckoutDevPanel();
+      updateSaveButton();
+      updateDevPanel();
     }
 
-    // وسم أي حقل المستخدم عدّله بعد التعبئة كـ "تم التعديل يدوياً"
-    ADDRESS_FIELDS.forEach(f => {
-      const el = document.getElementById(f.id);
-      if (!el) return;
-      el.addEventListener('input', () => {
-        const tagEl = document.querySelector(`.field-source-tag[data-tag="${f.tag}"]`);
-        if (tagEl && !tagEl.classList.contains('empty')) {
-          tagEl.textContent = 'تم تعديله';
-          tagEl.style.background = '#fff3cd';
-          tagEl.style.color = '#856404';
-        }
-      });
-    });
-
-    async function lookupSebl() {
-      // أظهر حالة التحميل
-      seblBtn.disabled = true;
-      seblBtn.innerHTML = 'جارٍ الجلب <span class="spinner"></span>';
-      seblResult.classList.remove('ok', 'err');
-      seblResult.classList.add('show');
-      seblResult.style.background = '#f5f5f5';
-      seblResult.style.border = '1px solid #e0e0e0';
-      seblResult.style.color = '#666';
-      seblResult.innerHTML = '⏳ جارٍ الاتصال بخادم سبل...';
-
-      try {
-        const result = await fetchSeblAddress(seblInput.value, 'A'); // من app.js
-        // أعد ضبط أنماط التحميل المؤقتة
-        seblResult.style.background = '';
-        seblResult.style.border = '';
-        seblResult.style.color = '';
-
-        if (!result.ok) {
-          seblResult.classList.remove('ok');
-          seblResult.classList.add('err');
-          seblResult.innerHTML = `❌ ${result.error}`;
-          resolvedAddress = null;
-        } else {
-          seblResult.classList.remove('err');
-          seblResult.classList.add('ok');
-          seblResult.innerHTML = `
-            ✓ تم جلب العنوان من سبل بنجاح. تمت تعبئة الحقول أدناه — يمكنك تعديل أي قيمة قبل التأكيد.
-            <div class="addr-line">${result.address}</div>
-          `;
-          resolvedAddress = result;
-          populateAddressFields(result); // ← التعبئة التلقائية
-          // فحص تطابق إحداثيات GPS مع إحداثيات سبل
-          if (result.lat != null && result.lng != null) {
-            runLocationMatchCheck(result.lat, result.lng);
-          }
-        }
-      } finally {
-        seblBtn.disabled = false;
-        seblBtn.innerHTML = seblBtnText;
-        updateFinalSummary();
-      }
-    }
-
-    seblBtn.addEventListener('click', lookupSebl);
-
-    // السماح بإرسال الضغط على Enter
-    seblInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') seblBtn.click();
-    });
-
-    /* ============================================================
-       2-bis) خريطة Google Maps — تحديد الموقع بدبّوس قابل للسحب
-       ------------------------------------------------------------
-       - نحمّل Google Maps JS API بشكل كسول (lazy) أول فتح للتبويب.
-       - المفتاح يُجلب وقت التشغيل من /api/maps-config.
-       - دبّوس قابل للسحب + النقر على الخريطة لضبط الموقع بدقّة.
-       - مربّع بحث (Places Autocomplete) للقفز لأي عنوان.
-       - عند تثبيت الموقع: reverse-geocode لجلب الحي/المدينة/الشارع،
-         تعبئة نفس الحقول، وتشغيل فحص تطابق الموقع مع GPS.
-       *** نقطة الاستبدال في Magento: نفس المنطق، فقط استبدل عنصر
-           الخريطة وربط الحقول. ***
-       ============================================================ */
-    const mapStatus = document.getElementById('mapStatus');
-    let mapInitialized = false;   // هل أُنشئت الخريطة؟
-    let mapLoading     = false;   // لمنع التحميل المزدوج
-    let gMap = null, gMarker = null, gGeocoder = null;
-
-    function setMapStatus(kind, html) {
-      mapStatus.className = 'map-status show ' + kind;
-      mapStatus.innerHTML = html;
-    }
-
-    // تبديل التبويبات
-    document.querySelectorAll('.addr-tab').forEach(tab => {
-      tab.addEventListener('click', () => {
-        document.querySelectorAll('.addr-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.addr-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        const panel = tab.dataset.panel;
-        document.getElementById(panel === 'map' ? 'panelMap' : 'panelCode').classList.add('active');
-        if (panel === 'map') ensureMapLoaded();
-      });
-    });
-
-    // جلب المفتاح ثم تحميل سكربت Google Maps (مرّة واحدة)
-    async function ensureMapLoaded() {
-      if (mapInitialized || mapLoading) return;
-      mapLoading = true;
-      setMapStatus('load', '⏳ جارٍ تحميل خريطة Google...');
-      try {
-        const base = (window.SEBL_API_BASE || '');
-        const cfgRes = await fetch(base + '/api/maps-config', { headers: { 'Accept': 'application/json' } });
-        const cfg = await cfgRes.json().catch(() => ({}));
-        if (!cfgRes.ok || !cfg.success || !cfg.apiKey) {
-          throw new Error(cfg.error || 'تعذّر جلب مفتاح الخريطة من الخادم.');
-        }
-        await loadGoogleMaps(cfg.apiKey);
-        initGoogleMap();
-      } catch (e) {
-        setMapStatus('err', '❌ ' + (e.message || 'فشل تحميل الخريطة.') +
-          '<br><span style="font-size:12px">يمكنك بدلاً من ذلك إدخال كود العنوان من التبويب الآخر.</span>');
-      } finally {
-        mapLoading = false;
-      }
-    }
-
-    // حقن وسم <script> لـ Google Maps مع مكتبة Places
-    function loadGoogleMaps(apiKey) {
-      return new Promise((resolve, reject) => {
-        if (window.google && window.google.maps) return resolve();
-        window.__gmapsReady = () => resolve();
-        const s = document.createElement('script');
-        s.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(apiKey) +
-                '&libraries=places&language=ar&region=SA&callback=__gmapsReady';
-        s.async = true;
-        s.defer = true;
-        s.onerror = () => reject(new Error('تعذّر تحميل خريطة Google (تحقّق من المفتاح أو تفعيل Maps JavaScript API).'));
-        document.head.appendChild(s);
-      });
-    }
-
-    // إنشاء الخريطة + الدبّوس + مربّع البحث
-    function initGoogleMap() {
-      if (!(window.google && window.google.maps)) {
-        setMapStatus('err', '❌ خريطة Google لم تُحمّل بشكل صحيح.');
+    async function doSeblLookup() {
+      const code = seblInput.value.trim().toUpperCase();
+      if (!code) {
+        showSeblResult('err', '❌ الرجاء إدخال رمز العنوان الوطني.');
         return;
       }
-      // المركز الابتدائي: GPS العميل إن وُجد، وإلا الرياض
-      const sel = loadSelection();
-      const start = (sel && sel.lat != null && sel.lng != null)
-        ? { lat: sel.lat, lng: sel.lng }
-        : { lat: 24.7136, lng: 46.6753 }; // الرياض
+      // حالة تحميل
+      confirmBtn.disabled = true;
+      confirmText.textContent = 'جارٍ الاتصال بسبل';
+      confirmIcon.style.display = 'none';
+      confirmBtn.insertAdjacentHTML('afterbegin', '<span class="spinner" id="confirmSpin"></span>');
+      showSeblResult('loading', '⏳ جارٍ الاتصال بخادم سبل...');
 
-      gGeocoder = new google.maps.Geocoder();
-      gMap = new google.maps.Map(document.getElementById('naMap'), {
-        center: start,
-        zoom: (sel && sel.lat != null) ? 16 : 11,
-        mapTypeControl: false,
-        streetViewControl: false,
-        fullscreenControl: true,
-        gestureHandling: 'greedy'
-      });
-
-      gMarker = new google.maps.Marker({
-        position: start,
-        map: gMap,
-        draggable: true,
-        title: 'اسحبني لضبط موقع التسليم بدقّة'
-      });
-
-      // النقر/السحب ينقل الدبّوس فقط — بدون قراءة (توفيراً للطلبات)
-      gMap.addListener('click', (e) => { gMarker.setPosition(e.latLng); markPinMoved(); });
-      gMarker.addListener('dragend', () => markPinMoved());
-
-      // مربّع البحث (Places Autocomplete) — ينقل الدبّوس فقط
-      const searchEl = document.getElementById('mapSearch');
-      if (searchEl && google.maps.places) {
-        const ac = new google.maps.places.Autocomplete(searchEl, {
-          componentRestrictions: { country: 'sa' },
-          fields: ['geometry', 'name']
-        });
-        ac.addListener('place_changed', () => {
-          const place = ac.getPlace();
-          if (place.geometry && place.geometry.location) {
-            const loc = place.geometry.location;
-            gMap.panTo(loc);
-            gMap.setZoom(17);
-            gMarker.setPosition(loc);
-            markPinMoved();
-          }
-        });
-      }
-
-      // زر "تأكيد الموقع وقراءة العنوان" — هنا فقط يحدث استدعاء Google
-      const confirmAddrBtn = document.getElementById('confirmAddrBtn');
-      if (confirmAddrBtn) {
-        confirmAddrBtn.disabled = false;
-        confirmAddrBtn.addEventListener('click', () => {
-          const pos = gMarker.getPosition();
-          if (pos) handlePinMoved(pos);
-        });
-      }
-
-      // زر "استخدم موقعي الحالي" — يطلب GPS وينقل الدبّوس إليه
-      const locateBtn = document.getElementById('locateBtn');
-      if (locateBtn) {
-        locateBtn.addEventListener('click', () => {
-          if (!navigator.geolocation) {
-            setMapStatus('err', '❌ المتصفّح لا يدعم تحديد الموقع.');
-            return;
-          }
-          locateBtn.disabled = true;
-          setMapStatus('load', '⏳ جارٍ طلب موقعك الحالي...');
-          navigator.geolocation.getCurrentPosition(
-            (pos) => {
-              locateBtn.disabled = false;
-              const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-              gMap.panTo(loc);
-              gMap.setZoom(17);
-              gMarker.setPosition(loc);
-              markPinMoved(); // ينقل الدبّوس فقط — القراءة عند زر التأكيد
-            },
-            (err) => {
-              locateBtn.disabled = false;
-              const msg = err.code === err.PERMISSION_DENIED
-                ? 'رفضت إذن الموقع. فعّله من إعدادات المتصفّح ثم أعد المحاولة.'
-                : 'تعذّر تحديد موقعك الحالي — حرّك الدبّوس يدوياً.';
-              setMapStatus('err', '❌ ' + msg);
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-          );
-        });
-      }
-
-      mapInitialized = true;
-      setMapStatus('ok', '✓ الخريطة جاهزة — حرّك الدبّوس ثم اضغط «تأكيد الموقع وقراءة العنوان».');
-    }
-
-    // تحريك الدبّوس فقط (بدون استدعاء Google) — يذكّر بالضغط على زر التأكيد
-    function markPinMoved() {
-      setMapStatus('load', '📍 تم تحريك الدبّوس — اضغط «تأكيد الموقع وقراءة العنوان» لتعبئة الحقول.');
-    }
-
-    // قراءة العنوان (عند زر التأكيد فقط): reverse-geocode + تعبئة + فحص التطابق
-    function handlePinMoved(latLng) {
-      const lat = typeof latLng.lat === 'function' ? latLng.lat() : latLng.lat;
-      const lng = typeof latLng.lng === 'function' ? latLng.lng() : latLng.lng;
-      setMapStatus('load', '⏳ جارٍ قراءة العنوان من الموقع...');
-
-      gGeocoder.geocode({ location: { lat, lng } }, (results, status) => {
-        let comp = {};
-        if (status === 'OK' && results && results[0]) {
-          comp = parseGoogleComponents(results[0]);
-        }
-        const city     = comp.city || '';
-        const district = comp.district || '';
-        const street   = comp.street || '';
-
-        const normalized = {
-          ok: true,
-          code: comp.code || '',           // الرمز الوطني إن وُجد ضمن عنوان Google
-          city, district, street,
-          building: comp.building || '',
-          postCode: comp.postCode || '',
-          additionalNumber: '',
-          lat, lng,
-          address: comp.formatted ||
-            [city, district && ('حي ' + district), street && ('شارع ' + street)].filter(Boolean).join('، ')
-        };
-
-        resolvedAddress = normalized;      // يقرأها الملخّص النهائي (نفس متغيّر سبل)
-        populateAddressFields(normalized, 'من الخريطة'); // تعبئة + وميض الحقول
-        runLocationMatchCheck(lat, lng);   // فحص التطابق مع GPS
-        setMapStatus('ok', '✓ الموقع: <strong>' + (normalized.address || (lat.toFixed(6) + ', ' + lng.toFixed(6))) +
-          '</strong> — تمت تعبئة الحقول، يمكنك تعديلها قبل التأكيد.');
-        updateFinalSummary();
-      });
-    }
-
-    // استخراج المدينة/الحي/الشارع من مكوّنات عنوان Google
-    function parseGoogleComponents(result) {
-      const out = { formatted: result.formatted_address || '' };
-      // الرمز الوطني المختصر (4 أحرف + 4 أرقام) يظهر غالباً ضمن العنوان الكامل
-      const m = (result.formatted_address || '').match(/\b([A-Z]{4}\d{4})\b/);
-      if (m) out.code = m[1];
-      (result.address_components || []).forEach(c => {
-        const t = c.types;
-        if (t.includes('street_number')) out.building = c.long_name;
-        else if (t.includes('route')) out.street = c.long_name;
-        else if (t.includes('neighborhood') || t.includes('sublocality') || t.includes('sublocality_level_1'))
-          out.district = out.district || c.long_name;
-        else if (t.includes('locality')) out.city = c.long_name;
-        else if (t.includes('administrative_area_level_2') && !out.city) out.city = c.long_name;
-        else if (t.includes('postal_code')) out.postCode = c.long_name;
-      });
-      return out;
-    }
-
-    // ====== 3) الملخّص النهائي + زر التأكيد ======
-    const finalSummary = document.getElementById('finalSummary');
-
-    // اقرأ القيم الحالية من حقول العنوان (قد يكون المستخدم عدّلها بعد سبل)
-    function getCurrentAddress() {
-      const city     = document.getElementById('addrCity').value.trim();
-      const district = document.getElementById('addrDistrict').value.trim();
-      const street   = document.getElementById('addrStreet').value.trim();
-      const building = document.getElementById('addrBuilding').value.trim();
-      const postCode = document.getElementById('addrPostCode').value.trim();
-      const lat      = document.getElementById('addrLat').value.trim();
-      const lng      = document.getElementById('addrLng').value.trim();
-      const fullManual = document.getElementById('addrFull').value.trim();
-      // إن لم يكتب المستخدم العنوان كاملاً، نُركّبه من الحقول
-      const full = fullManual || [
-        city,
-        district && `حي ${district}`,
-        street   && `شارع ${street}`,
-        building && `مبنى ${building}`
-      ].filter(Boolean).join('، ');
-      return { city, district, street, building, postCode, lat, lng, full };
-    }
-
-    function updateFinalSummary() {
-      const sel  = loadSelection();
-      const addr = getCurrentAddress();
-      const hasStore = sel && sel.storeId;
-      // نعتبر العنوان جاهزاً عند توفّر المدينة والحي والشارع كحد أدنى
-      const hasAddr  = addr.city && addr.district && addr.street;
-
-      const placeBtn = document.getElementById('placeOrderBtn');
-
-      if (hasStore && hasAddr) {
-        document.getElementById('finalStore').textContent =
-          `${sel.storeName} (رقم ${sel.storeId})`;
-        const codeVal = (document.getElementById('addrNationalCode').value || '').trim().toUpperCase()
-          || (resolvedAddress && resolvedAddress.code) || '';
-        document.getElementById('finalCode').textContent = codeVal || '— (إدخال يدوي)';
-        document.getElementById('finalAddr').textContent = addr.full;
-        finalSummary.classList.add('show');
-
-        // عطّل الزر إذا فحص الموقع رجع بـ block
-        if (locationMatch.status === 'block') {
-          placeBtn.disabled = true;
-          placeBtn.textContent = '❌ لا يمكن التأكيد — راجع رمز العنوان';
+      try {
+        const result = await fetchSeblAddress(code, 'A');
+        if (!result.ok) {
+          showSeblResult('err', '❌ ' + result.error);
+          resolvedAddress = null;
+          locTitle.textContent = 'تعذّر جلب العنوان';
+          locSub.textContent = result.error;
+          locSub.style.color = '#b91c1c';
         } else {
-          placeBtn.disabled = false;
-          placeBtn.textContent = 'تأكيد الطلب';
+          resolvedAddress = result;
+          hideSeblResult();
+          populateAddressFromSebl(result);
+          // حدّث بطاقة الموقع
+          locTitle.textContent = result.address;
+          locSub.innerHTML = `<span style="color:#16a34a;font-weight:600;">✓ تم تأكيد الموقع — ${result.code}</span>`;
+          locSub.style.color = '';
+          locBadge.style.background = '#dcfce7';
+          locBadge.style.color = '#15803d';
+          locBadge.textContent = 'تم التأكيد';
+          locCard.classList.add('confirmed');
+
+          // اضبط الزر على الحالة الناجحة
+          confirmBtn.classList.add('confirmed');
+          confirmText.textContent = 'تم تأكيد الموقع';
+          confirmIcon.style.display = 'inline-flex';
+
+          // حدّث الخريطة لتركّز على إحداثيات سبل
+          if (mapInstance && result.lat != null && result.lng != null) {
+            mapInstance.setView([result.lat, result.lng], 15);
+            userMarker.setLatLng([result.lat, result.lng]);
+            refreshNearestHighlight(result.lat, result.lng);
+          }
+
+          // ملخّص جانبي
+          document.getElementById('sumCode').textContent = result.code;
+
+          // فحص التطابق
+          if (result.lat != null && result.lng != null) {
+            runMatchCheck(result.lat, result.lng);
+          }
         }
-      } else {
-        finalSummary.classList.remove('show');
+      } catch (e) {
+        showSeblResult('err', '❌ خطأ غير متوقّع: ' + e.message);
+      } finally {
+        const sp = document.getElementById('confirmSpin'); if (sp) sp.remove();
+        confirmBtn.disabled = false;
+        if (!resolvedAddress) {
+          confirmIcon.style.display = 'none';
+          confirmText.textContent = 'تأكيد الموقع';
+        }
+        updateSaveButton();
+        updateDevPanel();
       }
     }
 
-    // حدّث الملخّص فوراً عند تعديل أي حقل عنوان
-    ['addrNationalCode','addrCity','addrDistrict','addrStreet','addrBuilding','addrFull','addrLat','addrLng','addrPostCode']
-      .forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.addEventListener('input', updateFinalSummary);
-      });
+    seblBtn.addEventListener('click', doSeblLookup);
+    confirmBtn.addEventListener('click', doSeblLookup);
+    seblInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); doSeblLookup(); }
+    });
 
-    /* ============================================================
-       Developer Mode على صفحة Checkout
-       ------------------------------------------------------------
-       يعرض:
-       - الـ Endpoint المُستدعى مع البارامترات
-       - Headers الأمنية (Ocp-Apim-Subscription-Key مخفي على الخادم)
-       - رد سبل بعد التطبيع (ar/en)
-       - مقارنة Haversine بين GPS العميل وإحداثيات سبل
-       - شجرة القرار (1km/5km/block)
-       ============================================================ */
+    // ── 5) "استخدام موقعك الحالي" ────────────────────────────────
+    document.getElementById('useGpsBtn').addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        alert('متصفّحك لا يدعم تحديد الموقع.');
+        return;
+      }
+      const btn = document.getElementById('useGpsBtn');
+      btn.disabled = true;
+      const orig = btn.innerHTML;
+      btn.innerHTML = '<span class="spinner" style="color:#2563eb;"></span><span>جارٍ تحديد الموقع...</span>';
+      navigator.geolocation.getCurrentPosition(
+        pos => {
+          btn.disabled = false; btn.innerHTML = orig;
+          const { latitude, longitude } = pos.coords;
+          if (mapInstance) {
+            mapInstance.setView([latitude, longitude], 15);
+            userMarker.setLatLng([latitude, longitude]);
+            onLocationChanged(latitude, longitude);
+          }
+          // احفظ في sessionStorage حتى نقدر نقارن مع سبل لاحقاً
+          const ranked = stores.map(s => ({
+            ...s, distance: haversineKm(latitude, longitude, s.lat, s.lng)
+          })).sort((a,b) => a.distance - b.distance);
+          const nearest = ranked[0];
+          saveSelection({
+            lat: latitude, lng: longitude,
+            accuracy: Math.round(pos.coords.accuracy),
+            storeId: nearest.id, storeName: nearest.name,
+            distance: +nearest.distance.toFixed(2),
+            source: 'auto'
+          });
+          // حدّث الـ topbar وstore bar
+          storeBarEmpty.style.display = 'none';
+          storeBar.style.display = 'flex';
+          storeBarName.textContent = nearest.name;
+          storeBarTag.textContent = '⚡ تلقائي';
+          topbarStoreEl.textContent = nearest.name;
+          sumStore.textContent = `${nearest.name} (${nearest.id})`;
+        },
+        err => {
+          btn.disabled = false; btn.innerHTML = orig;
+          alert('تعذّر تحديد الموقع: ' + (err.message || err.code));
+        },
+        { enableHighAccuracy: true, timeout: 10000 }
+      );
+    });
+
+    // ── 6) Recenter button ──────────────────────────────────────
+    document.getElementById('recenterBtn').addEventListener('click', () => {
+      if (!mapInstance || !userMarker) return;
+      const ll = userMarker.getLatLng();
+      mapInstance.setView([ll.lat, ll.lng], 15);
+    });
+
+    // ── 7) Save button + final action ───────────────────────────
+    const saveBtn = document.getElementById('saveBtn');
+    const saveText = document.getElementById('saveText');
+    const saveIcon = document.getElementById('saveIcon');
+    let saved = false;
+
+    function getCurrentAddress() {
+      return {
+        city:     document.getElementById('addrCity').value.trim(),
+        district: document.getElementById('addrDistrict').value.trim(),
+        street:   document.getElementById('addrStreet').value.trim(),
+        building: document.getElementById('addrBuilding').value.trim(),
+        postCode: document.getElementById('addrPostCode').value.trim(),
+        lat:      document.getElementById('addrLat').value.trim(),
+        lng:      document.getElementById('addrLng').value.trim(),
+        full:     document.getElementById('addrFull').value.trim()
+      };
+    }
+
+    function updateSaveButton() {
+      const addr = getCurrentAddress();
+      const hasAddr = addr.city && addr.district && addr.street;
+      saveBtn.disabled = false;
+      saveBtn.classList.remove('success');
+      if (!hasAddr) {
+        saveBtn.disabled = true;
+        saveText.textContent = 'أكمل تفاصيل العنوان أولاً';
+        saveIcon.style.display = 'none';
+      } else if (locationMatch.status === 'block') {
+        saveBtn.disabled = true;
+        saveText.textContent = '❌ لا يمكن الحفظ — راجع الرمز';
+        saveIcon.style.display = 'none';
+      } else if (saved) {
+        saveBtn.classList.add('success');
+        saveText.textContent = 'تم الحفظ بنجاح';
+        saveIcon.style.display = 'inline-flex';
+      } else {
+        saveText.textContent = 'حفظ العنوان والمتابعة';
+        saveIcon.style.display = 'none';
+      }
+    }
+
+    saveBtn.addEventListener('click', () => {
+      if (locationMatch.status === 'block') {
+        alert('❌ لا يمكن إكمال الطلب — الفرق بين موقعك والعنوان كبير.');
+        return;
+      }
+      const sel = loadSelection();
+      const addr = getCurrentAddress();
+      const code = (resolvedAddress && resolvedAddress.code) || '(يدوي)';
+      const matchInfo = locationMatch.status === 'ok'
+        ? `✅ تطابق ممتاز (${Math.round(locationMatch.distance*1000)}م)`
+        : locationMatch.status === 'warn'
+        ? `⚠️ فرق ${locationMatch.distance.toFixed(2)} كم — مقبول`
+        : 'غير مفحوص';
+      alert(
+        '✓ تم حفظ العنوان بنجاح (محاكاة)\n\n' +
+        (sel ? `الفرع: ${sel.storeName} (${sel.storeId})\n` : '') +
+        `الرمز الوطني: ${code}\n` +
+        `العنوان: ${addr.full}\n` +
+        `المدينة/الحي/الشارع: ${addr.city} / ${addr.district} / ${addr.street}\n` +
+        `الإحداثيات: ${addr.lat || '—'}, ${addr.lng || '—'}\n` +
+        `تطابق الموقع: ${matchInfo}\n\n` +
+        '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
+      );
+      saved = true;
+      updateSaveButton();
+    });
+
+    // تحديث الزر عند تعديل الحقول يدوياً
+    ['addrCity','addrDistrict','addrStreet','addrBuilding','addrPostCode','addrLat','addrLng','addrFull']
+      .forEach(id => document.getElementById(id)?.addEventListener('input', updateSaveButton));
+    updateSaveButton();
+
+    // ── 8) Developer Mode ───────────────────────────────────────
     const devToggle = document.getElementById('devToggle');
     const devPanel  = document.getElementById('devPanel');
     const devClose  = document.getElementById('devClose');
     const devPlaceholder = document.getElementById('devPlaceholder');
     const devContent = document.getElementById('devContent');
-
     devToggle.addEventListener('click', () => devPanel.classList.add('open'));
     devClose .addEventListener('click', () => devPanel.classList.remove('open'));
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') devPanel.classList.remove('open');
-    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') devPanel.classList.remove('open'); });
 
-    function devFmt(n, p = 6) {
-      if (n === null || n === undefined || Number.isNaN(n)) return '—';
+    function devFmt(n, p=6) {
+      if (n == null || Number.isNaN(n)) return '—';
       return Number(n).toFixed(p);
     }
 
-    function updateCheckoutDevPanel() {
-      const sel    = loadSelection();
-      const result = resolvedAddress;
-      const code   = (document.getElementById('seblInput').value || '').trim().toUpperCase();
-
-      // قبل أي استدعاء — لا يوجد ما يُعرض
-      if (!result || !result.ok) {
-        devContent.innerHTML = '';
-        devContent.style.display = 'none';
+    function updateDevPanel() {
+      if (!resolvedAddress || !resolvedAddress.ok) {
         devPlaceholder.style.display = 'block';
+        devContent.style.display = 'none';
         return;
       }
-
-      // GPS من الصفحة الرئيسية
+      const sel = loadSelection();
       const gpsLat = sel && sel.lat != null ? sel.lat : null;
       const gpsLng = sel && sel.lng != null ? sel.lng : null;
-
-      // إعادة حساب Haversine هنا لإظهار كل الخطوات الوسيطة
       let calc = null;
       if (gpsLat !== null && gpsLng !== null) {
-        const dLat = (result.lat - gpsLat) * Math.PI / 180;
-        const dLng = (result.lng - gpsLng) * Math.PI / 180;
-        const lat1Rad = gpsLat * Math.PI / 180;
-        const lat2Rad = result.lat * Math.PI / 180;
-        const a = Math.sin(dLat / 2) ** 2 +
-                  Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.sin(dLng / 2) ** 2;
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        const dLat = (resolvedAddress.lat - gpsLat) * Math.PI/180;
+        const dLng = (resolvedAddress.lng - gpsLng) * Math.PI/180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(gpsLat*Math.PI/180)*Math.cos(resolvedAddress.lat*Math.PI/180)*Math.sin(dLng/2)**2;
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const d = 6371 * c;
         calc = { dLat, dLng, a, c, d };
       }
-
       const status = locationMatch.status;
-      const decisionClass = status === 'ok' ? 'ok' : status === 'warn' ? 'warn' : status === 'block' ? 'block' : 'ok';
+      const dc = status==='ok'?'ok':status==='warn'?'warn':status==='block'?'block':'ok';
 
       devContent.innerHTML = `
         <div class="dev-section">
           <div class="step-label">STEP 1</div>
-          <div class="step-title">User input → national address code</div>
+          <div class="step-title">User input</div>
           <div class="step-content">
-            <span class="var">shortaddress</span> = <span class="val">"${code || result.code || '(اختيار من الخريطة)'}"</span><br>
-            Pattern check: <span class="val">/^[A-Z]{4}[0-9]{4}$/.test()</span> → <span class="val">true</span>
+            <span class="var">shortaddress</span> = <span class="val">"${resolvedAddress.code}"</span>
           </div>
         </div>
-
         <div class="dev-section">
           <div class="step-label">STEP 2</div>
-          <div class="step-title">Frontend → backend (CORS-safe proxy)</div>
+          <div class="step-title">Frontend → Vercel proxy</div>
           <div class="step-content">
-            <span class="var">GET</span>
-            <span class="api-url">/api/national-address?shortaddress=${encodeURIComponent(result.code)}&amp;language=A</span>
+            <span class="var">GET</span> <span class="api-url">/api/national-address?shortaddress=${resolvedAddress.code}&amp;language=A</span>
           </div>
         </div>
-
         <div class="dev-section">
           <div class="step-label">STEP 3</div>
-          <div class="step-title">Backend → Sebl API (key stays server-side)</div>
+          <div class="step-title">Proxy → Sebl (key stays server-side)</div>
           <div class="step-content">
-            <span class="var">GET</span>
-            <span class="api-url">https://apina.address.gov.sa/NationalAddress/<br>
-            FullNAByShortAddress/FullNAByShortAddress?format=json&amp;language=A<br>
-            &amp;page=1&amp;encode=utf8&amp;shortaddress=${result.code}</span>
-            <br><br>
-            Header: <span class="var">Ocp-Apim-Subscription-Key</span> = <span class="val">[process.env.SEBL_API_KEY]</span> 🔒
+            <span class="var">GET</span> <span class="api-url">https://apina.address.gov.sa/.../FullNAByShortAddress?...&amp;shortaddress=${resolvedAddress.code}</span>
+            <br><br>Header: <span class="var">Ocp-Apim-Subscription-Key</span> = <span class="val">[process.env.SEBL_API_KEY]</span> 🔒
           </div>
         </div>
-
         <div class="dev-section">
           <div class="step-label">STEP 4</div>
-          <div class="step-title">Sebl response (normalized)</div>
-          <div class="step-content" style="white-space:pre-wrap; font-size:11px;">${JSON.stringify({
-            shortAddress: result.code,
-            latitude:  result.lat,
-            longitude: result.lng,
-            building:  result.building,
-            postCode:  result.postCode,
-            ar: { city: result.city, district: result.district, street: result.street }
+          <div class="step-title">Normalized response</div>
+          <div class="step-content" style="white-space:pre-wrap;font-size:11px;">${JSON.stringify({
+            shortAddress: resolvedAddress.code,
+            latitude: resolvedAddress.lat,
+            longitude: resolvedAddress.lng,
+            building: resolvedAddress.building,
+            postCode: resolvedAddress.postCode,
+            ar: { city: resolvedAddress.city, district: resolvedAddress.district, street: resolvedAddress.street }
           }, null, 2)}</div>
         </div>
-
         ${gpsLat === null ? `
           <div class="dev-section">
             <div class="step-label">STEP 5</div>
-            <div class="step-title">Match check — skipped</div>
-            <div class="dev-decision ok">
-              No GPS coordinates in sessionStorage (store picked manually).<br>
-              → location-match validation skipped.
-            </div>
-          </div>
-        ` : `
+            <div class="step-title">Match check — skipped (no GPS)</div>
+            <div class="dev-decision ok">No GPS in sessionStorage → validation skipped.</div>
+          </div>` : `
           <div class="dev-section">
             <div class="step-label">STEP 5</div>
-            <div class="step-title">Match Check: Haversine on (GPS, Sebl) pair</div>
+            <div class="step-title">Haversine(GPS, Sebl)</div>
             <div class="step-content">
               <span class="var">lat</span><sub>gps</sub>  = <span class="val">${devFmt(gpsLat)}</span><br>
               <span class="var">lng</span><sub>gps</sub>  = <span class="val">${devFmt(gpsLng)}</span><br>
-              <span class="var">lat</span><sub>sebl</sub> = <span class="val">${devFmt(result.lat)}</span><br>
-              <span class="var">lng</span><sub>sebl</sub> = <span class="val">${devFmt(result.lng)}</span>
+              <span class="var">lat</span><sub>sebl</sub> = <span class="val">${devFmt(resolvedAddress.lat)}</span><br>
+              <span class="var">lng</span><sub>sebl</sub> = <span class="val">${devFmt(resolvedAddress.lng)}</span>
             </div>
             <table class="dev-table" style="margin-top:8px;">
-              <thead>
-                <tr><th>Δlat (rad)</th><th>Δlng (rad)</th><th>a</th><th>c</th><th>d (km)</th></tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td>${devFmt(calc.dLat, 6)}</td>
-                  <td>${devFmt(calc.dLng, 6)}</td>
-                  <td>${calc.a.toExponential(3)}</td>
-                  <td>${devFmt(calc.c, 6)}</td>
-                  <td><strong>${devFmt(calc.d, 4)}</strong></td>
-                </tr>
-              </tbody>
+              <thead><tr><th>Δlat (rad)</th><th>Δlng (rad)</th><th>a</th><th>c</th><th>d (km)</th></tr></thead>
+              <tbody><tr>
+                <td>${devFmt(calc.dLat,6)}</td><td>${devFmt(calc.dLng,6)}</td>
+                <td>${calc.a.toExponential(3)}</td><td>${devFmt(calc.c,6)}</td>
+                <td><strong>${devFmt(calc.d,4)}</strong></td>
+              </tr></tbody>
             </table>
           </div>
-
           <div class="dev-section">
             <div class="step-label">STEP 6</div>
             <div class="step-title">Decision tree</div>
             <div class="step-content">
-              if (d ≤ <span class="var">${MATCH_OK_KM}</span> km)    → ✅ ok    (proceed normally)<br>
-              else if (d ≤ <span class="var">${MATCH_BLOCK_KM}</span> km) → ⚠️ warn  (proceed with caution)<br>
-              else                       → ❌ block (disable confirm button)
+              if d ≤ <span class="var">${MATCH_OK_KM}</span> km → ✅ ok<br>
+              else if d ≤ <span class="var">${MATCH_BLOCK_KM}</span> km → ⚠️ warn<br>
+              else → ❌ block
             </div>
-            <div class="dev-decision ${decisionClass}" style="margin-top:8px;">
-              d = ${devFmt(calc.d, 4)} km → verdict: <strong>${status.toUpperCase()}</strong>
+            <div class="dev-decision ${dc}" style="margin-top:8px;">
+              d = ${devFmt(calc.d,4)} km → <strong>${status.toUpperCase()}</strong>
             </div>
-          </div>
-        `}
-
+          </div>`}
         <div class="dev-section">
           <div class="step-label">STEP 7</div>
-          <div class="step-title">Final order action</div>
+          <div class="step-title">Save button state</div>
           <div class="step-content">
-            confirm button disabled = <span class="val">${status === 'block' ? 'true' : 'false'}</span><br>
-            ${status === 'block'
-              ? '→ click handler aborts with alert(); no Order created.'
-              : '→ click handler builds order payload (sel + addr + match).' }
+            disabled = <span class="val">${saveBtn.disabled ? 'true' : 'false'}</span><br>
+            label    = <span class="val">"${saveText.textContent}"</span>
           </div>
         </div>
       `;
@@ -1540,37 +1476,6 @@
       devContent.style.display = 'block';
     }
 
-    document.getElementById('placeOrderBtn').addEventListener('click', () => {
-      // طبقة أمان ثانية: لو الفحص رجع block — ارفض
-      if (locationMatch.status === 'block') {
-        alert(
-          '❌ لا يمكن إكمال الطلب\n\n' +
-          `الفرق بين موقعك والعنوان من سبل: ${locationMatch.distance.toFixed(2)} كم\n` +
-          `الحد المسموح: ${MATCH_BLOCK_KM} كم\n\n` +
-          'الرجاء التأكد من رمز العنوان الوطني أو إعادة تحديد موقعك.'
-        );
-        return;
-      }
-
-      const sel  = loadSelection();
-      const addr = getCurrentAddress();
-      const code = (resolvedAddress && resolvedAddress.code) || '(لم يُستخدم رمز وطني)';
-      const matchInfo = locationMatch.status === 'ok'
-          ? `تطابق الموقع: ✅ ممتاز (${(locationMatch.distance * 1000).toFixed(0)} م)`
-          : locationMatch.status === 'warn'
-          ? `تطابق الموقع: ⚠️ ${locationMatch.distance.toFixed(2)} كم — مقبول`
-          : 'تطابق الموقع: غير مفحوص';
-      alert(
-        '✓ تم تأكيد الطلب (محاكاة)\n\n' +
-        `الفرع: ${sel.storeName} (${sel.storeId})\n` +
-        `الرمز الوطني: ${code}\n` +
-        `العنوان: ${addr.full}\n` +
-        `المدينة/الحي/الشارع: ${addr.city} / ${addr.district} / ${addr.street}\n` +
-        `الإحداثيات: ${addr.lat || '—'} , ${addr.lng || '—'}\n` +
-        matchInfo + '\n\n' +
-        '(في Magento الحقيقي: هنا يتم إنشاء الـ Order فعلياً.)'
-      );
-    });
   </script>
 </body>
 </html>
