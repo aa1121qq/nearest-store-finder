@@ -700,24 +700,17 @@
     }
 
     /* البحث عن أقرب رمز وطني حول النقطة (لما النقطة نفسها بلا رمز)
-       نفحص حلقات صغيرة (أمتار) ونتوقّف عند أول رمز نجده = الأقرب.
-       يُستهلك عدة طلبات Google، لذا نشغّله عند "تأكيد الموقع" فقط. */
+       استدعاء واحد فقط على مسافة 70م شمال. إن لم يرجع رمز → فارغ.
+       الحد الأقصى للتكلفة: 2 استدعاءات Google لكل عملية "تأكيد الموقع". */
     async function probeNearbyCode(lat, lng) {
-      const mPerDegLat = 111320;
-      const mPerDegLng = 111320 * Math.cos(lat * Math.PI / 180) || 111320;
-      const radii  = [70];                         // قفزة مباشرة للحد الأقصى 70 متر
-      const angles = [0, 90, 180, 270];            // الجهات الأربع → 4 نقاط كحد أقصى
-      for (const r of radii) {
-        for (const a of angles) {
-          const rad = a * Math.PI / 180;
-          const dLat = (r * Math.cos(rad)) / mPerDegLat;
-          const dLng = (r * Math.sin(rad)) / mPerDegLng;
-          const res = await geocodeLatLng(lat + dLat, lng + dLng);
-          const code = extractCode(res);
-          if (code) return { code, offset: r };
-        }
-      }
-      return null;
+      const mPerDegLat = 111320;                   // 1° عرض ≈ 111,320 متر
+      const r = 70;                                // مسافة البحث بالمتر
+      const dLat = r / mPerDegLat;                 // 70م شمال (زيادة موجبة في العرض)
+      const dLng = 0;                              // بلا حركة شرق/غرب
+
+      const res  = await geocodeLatLng(lat + dLat, lng + dLng);   // ← استدعاء واحد
+      const code = extractCode(res);
+      return code ? { code, offset: r } : null;
     }
 
     function renderPicked() {
@@ -847,8 +840,8 @@
         '<div class="desc">Pattern: [A-Z]{4}[0-9]{4} inside the text</div>' +
         '<div class="dev-kv"><span class="k">match</span> = ' + step3 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
-        '<div class="dev-step"><div class="lbl">STEP 4 — Nearest-code search (if needed)</div>' +
-        '<div class="desc">Direct jump to max 70m × 4 points · stops at first code</div>' +
+        '<div class="dev-step"><div class="lbl">STEP 4 — Single probe (if needed)</div>' +
+        '<div class="desc">One extra request at 70m north · if it fails, code stays empty</div>' +
         '<div class="dev-kv"><span class="k">nearest</span> = ' + step4 + '</div></div>' +
         '<div class="dev-arrow">↓</div>' +
         '<div class="dev-step"><div class="lbl">✓ Final result</div>' +
@@ -857,7 +850,7 @@
         '<div class="dev-kv"><span class="k">district</span> = <span class="v">' + (s.done ? esc(s.district || '—') : '—') + '</span></div></div>' +
         '<div class="dev-step"><div class="lbl">💲 Cost of this operation</div>' +
         '<div class="dev-kv"><span class="k">Google requests</span> = <span class="dev-badge">' + (s.requests || 0) + '</span></div>' +
-        '<div class="desc">1 (read) + up to 4 (nearby search) = max 5 total</div></div>';
+        '<div class="desc">1 (read) + 1 (single probe if needed) = max 2 total</div></div>';
     }
     renderDev();
 
